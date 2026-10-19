@@ -111,11 +111,17 @@ ${footer(t, p.lang)}
 `);
 }
 
-function nlForm(t: Dict) {
-  return `<!-- TODO(newsletter): connect "${h(SITE.newsletter)}" to a privacy-friendly double-opt-in provider. Until then this form sends and stores NOTHING. -->
-<form class="nl-form" id="nl-form" novalidate><label class="sr-only" for="nl-email">${h(t.nlEmail)}</label>
-<input id="nl-email" type="email" placeholder="${h(t.nlEmail)}" autocomplete="email"><button class="btn primary" type="submit">${h(t.nlBtn)}</button></form>
-<p class="hint" id="nl-msg" role="status"></p>`;
+function nlForm(t: Dict, lang: Lang) {
+  // Posts to MailerLite's public embedded-form endpoint (no API key). src/newsletter.ts submits it with fetch;
+  // without JS the browser posts it directly (MailerLite then answers with JSON).
+  return `<form class="nl-form" id="nl-form" action="${h(SITE.newsletterFormAction)}" method="post" novalidate>
+<label class="sr-only" for="nl-email">${h(t.nlEmail)}</label>
+<input id="nl-email" name="fields[email]" type="email" placeholder="${h(t.nlEmail)}" autocomplete="email" required aria-describedby="nl-consent nl-msg">
+<div class="nl-hp" aria-hidden="true"><label for="nl-website">${h(t.nlHoneypot)}</label><input id="nl-website" name="nl-website" type="text" tabindex="-1" autocomplete="off"></div>
+<input type="hidden" name="ml-submit" value="1"><input type="hidden" name="anticsrf" value="true">
+<button class="btn primary" type="submit">${h(t.nlBtn)}</button></form>
+<p class="hint nl-consent" id="nl-consent">${h(t.nlConsent)} <a href="${ROUTES.privacy[lang]}">${h(t.nlPrivacy)}</a></p>
+<p class="hint nl-msg" id="nl-msg" role="status" aria-live="polite"></p>`;
 }
 
 function hubBody(t: Dict, lang: Lang) {
@@ -139,9 +145,9 @@ ${t.soonTools.map(([a, b]) => card(a, b, [], true)).join('\n')}
 </div>`;
 }
 
-function newsletterBody(t: Dict) {
+function newsletterBody(t: Dict, lang: Lang) {
   return `<section class="wrap prose narrow"><h1>${h(t.nlPageH1)}</h1><p class="lead">${h(t.nlPageLead)}</p>
-<div class="card newsletter nl-page">${nlForm(t)}</div>
+<div class="card newsletter nl-page">${nlForm(t, lang)}</div>
 <h2>${h(t.nlExpectH)}</h2><ul>${t.nlExpect.map((x) => `<li>${h(x)}</li>`).join('')}</ul></section>`;
 }
 
@@ -239,7 +245,7 @@ ${field('d-logo-size', t.fLogoSize, `<div class="range"><input id="d-logo-size" 
 <p class="hint">${h(t.testScan)}</p>
 <section class="newsletter" id="newsletter" hidden aria-labelledby="nl-h">
 <h3 id="nl-h">${h(t.nlH)}</h3><p>${h(t.nlText)}</p>
-${nlForm(t)}
+${nlForm(t, lang)}
 </section>
 </aside>`;
 
@@ -366,7 +372,7 @@ export function generatePages(): GeneratedPage[] {
     out.push({
       file: file(ROUTES.newsletter[lang]),
       html: layout({
-        id: 'newsletter', lang, title: t.nlPageTitle, desc: t.nlPageDesc, body: newsletterBody(t), og: 'og-newsletter',
+        id: 'newsletter', lang, title: t.nlPageTitle, desc: t.nlPageDesc, body: newsletterBody(t, lang), og: 'og-newsletter',
         ld: [{ '@context': 'https://schema.org', '@type': 'WebPage', name: brandify(t.nlPageTitle), description: brandify(t.nlPageDesc), url: abs(ROUTES.newsletter[lang]), inLanguage: lang, publisher: { '@type': 'Organization', name: BRAND_NAME } }],
       }),
     });

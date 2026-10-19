@@ -211,3 +211,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .nl-page { margin: 18px 0; }
 .nl-form { display: flex; gap: 8px; flex-wrap: wrap; }
 .nl-form input { flex: 1; min-width: 180px; }
+
+/* Newsletter signup */
+.nl-hp { position: absolute !important; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.nl-form { position: relative; }
+.nl-form button[aria-busy="true"] { opacity: .7; cursor: progress; }
+.nl-consent { margin-top: 8px; font-size: .85rem; }
+.nl-msg:empty { display: none; }
+.nl-msg.ok { color: var(--ok, #0a7a3d); font-weight: 650; }
+.nl-msg.err { color: var(--bad, #b42318); font-weight: 650; }

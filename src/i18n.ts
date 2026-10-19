@@ -111,8 +111,14 @@ const en = {
   nlH: '{newsletter}',
   nlText: 'One short email a week: a subscription trap explained, and the free tool that avoids it. Plus new {brand} tools as they launch.',
   nlEmail: 'Email address',
-  nlBtn: 'Notify me',
-  nlTodo: 'Coming soon: the newsletter is not active yet. Nothing was sent or stored.',
+  nlBtn: 'Subscribe',
+  nlSending: 'Sending…',
+  nlOk: 'Check your inbox to confirm.',
+  nlInvalid: 'Please enter a valid email address.',
+  nlErr: 'Something went wrong. Please try again in a moment.',
+  nlConsent: 'Optional and free. Double opt-in: we’ll email you a link to confirm. Sent via MailerLite, unsubscribe anytime.',
+  nlPrivacy: 'Privacy',
+  nlHoneypot: 'Leave this field empty',
 
   whyH: 'Why a static QR code never expires',
   whyP1:
@@ -220,7 +226,8 @@ const en = {
     'All {brand} tools run entirely in your browser. The QR codes you create, the logos you add, the Wi-Fi passwords you type and the images you check are processed on your device and are never uploaded.',
     'We do not use tracking cookies, advertising pixels or third-party analytics. The site loads no external scripts, fonts or CDNs.',
     'The site is served by a static hosting provider (currently Cloudflare Pages), which may keep standard technical server logs (such as IP address and requested page) for security and abuse prevention.',
-    'The newsletter form is not active yet: it does not send or store anything.',
+    'The newsletter is optional and never required to use the tools. If you subscribe, the form sends only your email address, directly from your browser, to our email provider MailerLite, which stores it and delivers the newsletter on our behalf. MailerLite may record whether newsletter emails are opened or links clicked.',
+    'Subscribing uses double opt-in: you are only added to the list after clicking the confirmation link we email you. Every newsletter contains an unsubscribe link and you can unsubscribe at any time; you can also ask us to delete your address.',
   ],
 
   notFoundTitle: 'Page not found | {brand}',
@@ -389,8 +396,14 @@ const it: Dict = {
   nlH: '{newsletter}',
   nlText: 'Una breve email a settimana: una trappola degli abbonamenti spiegata, e lo strumento gratuito che la evita. Più i nuovi strumenti {brand} appena escono.',
   nlEmail: 'Indirizzo email',
-  nlBtn: 'Avvisami',
-  nlTodo: 'In arrivo: la newsletter non è ancora attiva. Non è stato inviato né salvato nulla.',
+  nlBtn: 'Iscriviti',
+  nlSending: 'Invio…',
+  nlOk: 'Controlla la posta per confermare.',
+  nlInvalid: 'Inserisci un indirizzo email valido.',
+  nlErr: 'Qualcosa è andato storto. Riprova tra un momento.',
+  nlConsent: 'Facoltativa e gratuita. Doppio opt-in: ti mandiamo un link per confermare. Inviata tramite MailerLite, disiscrizione quando vuoi.',
+  nlPrivacy: 'Privacy',
+  nlHoneypot: 'Lascia vuoto questo campo',
 
   whyH: 'Perché un QR code statico non scade mai',
   whyP1:
@@ -496,7 +509,8 @@ const it: Dict = {
     'Tutti gli strumenti {brand} funzionano interamente nel tuo browser. I QR code che crei, i loghi che aggiungi, le password Wi-Fi che digiti e le immagini che verifichi vengono elaborati sul tuo dispositivo e non vengono mai caricati.',
     'Non usiamo cookie di tracciamento, pixel pubblicitari né strumenti di analisi di terze parti. Il sito non carica script, font o CDN esterni.',
     'Il sito è servito da un provider di hosting statico (attualmente Cloudflare Pages), che può conservare i normali log tecnici del server (come indirizzo IP e pagina richiesta) per sicurezza e prevenzione degli abusi.',
-    'Il modulo della newsletter non è ancora attivo: non invia né salva nulla.',
+    'La newsletter è facoltativa e non serve mai per usare gli strumenti. Se ti iscrivi, il modulo invia solo il tuo indirizzo email, direttamente dal tuo browser, al nostro fornitore di email MailerLite, che lo conserva e invia la newsletter per nostro conto. MailerLite può rilevare se le email della newsletter vengono aperte o se i link vengono cliccati.',
+    'L’iscrizione usa il doppio opt-in: vieni aggiunto alla lista solo dopo aver cliccato il link di conferma che ti mandiamo via email. Ogni newsletter contiene un link per disiscriverti e puoi farlo in qualsiasi momento; puoi anche chiederci di cancellare il tuo indirizzo.',
   ],
 
   notFoundTitle: 'Pagina non trovata | {brand}',

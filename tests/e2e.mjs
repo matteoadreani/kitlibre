@@ -52,12 +52,32 @@ const external = [], consoleErrors = [], cspViolations = [];
 async function newPage(viewport = { width: 1280, height: 900 }) {
   const page = await browser.newPage();
   await page.setViewport(viewport);
-  page.on('request', (r) => { const u = r.url(); if (!u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('blob:')) external.push(u); });
-  page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+  page.on('request', (r) => { const u = r.url(); if (!u.startsWith(BASE) && !u.startsWith('data:') && !u.startsWith('blob:') && !u.startsWith('https://assets.mailerlite.com/')) external.push(u); });
+  page.on('console', (m) => { if (m.type() === 'error' && !(m.location()?.url || '').startsWith('https://assets.mailerlite.com/')) consoleErrors.push(m.text()); }); // mocked MailerLite error cases log expected network errors
   page.on('pageerror', (e) => consoleErrors.push(String(e)));
   await page.evaluateOnNewDocument(() => document.addEventListener('securitypolicyviolation', (e) => console.error('CSP violation: ' + e.violatedDirective + ' ' + e.blockedURI)));
   return page;
 }
+// MailerLite is never contacted by the tests: requests to it are intercepted and answered locally.
+const ML = 'https://assets.mailerlite.com/';
+const mlPosts = [];
+async function mockMailerLite(page) {
+  const state = { mode: 'ok' };
+  await page.setRequestInterception(true);
+  page.on('request', (r) => {
+    if (!r.url().startsWith(ML)) return r.continue();
+    const cors = { 'Access-Control-Allow-Origin': '*' };
+    if (r.method() === 'OPTIONS') return r.respond({ status: 204, headers: { ...cors, 'Access-Control-Allow-Methods': 'POST' } });
+    mlPosts.push({ url: r.url(), method: r.method(), body: r.postData() || '', type: r.headers()['content-type'] || '', cookie: r.headers()['cookie'] || '' });
+    if (state.mode === 'down') return r.abort('failed');
+    const body = state.mode === 'ok' ? { success: true } : { success: false, errors: { fields: { email: ['The email must be a valid email address.'] } } };
+    setTimeout(() => r.respond({ status: state.mode === 'ok' ? 200 : 422, contentType: 'application/json', headers: cors, body: JSON.stringify(body) }), 150);
+  });
+  return state;
+}
+const nlMsg = (page) => page.$eval('#nl-msg', (m) => ({ text: m.textContent, cls: m.className }));
+const waitNlDone = (page) => page.waitForFunction(() => document.querySelector('#nl-form button').getAttribute('aria-busy') !== 'true' && document.querySelector('#nl-msg').textContent !== '', { timeout: 5000 });
+
 async function setVal(page, sel, value) {
   await page.$eval(sel, (el, v) => { if (el.type === 'checkbox') el.checked = v; else el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); }, value);
 }
@@ -79,6 +99,7 @@ async function svgDecode(page) {
 
 // ---------------- Generator: every type, PNG + SVG round-trip
 const page = await newPage();
+await mockMailerLite(page);
 await page.goto(BASE + '/qr/', { waitUntil: 'networkidle0' });
 await page.waitForFunction(() => !!window.__kitQr);
 const genCases = [
@@ -154,10 +175,14 @@ if (pngFile) {
 }
 if (svgFile) check('downloaded SVG is valid SVG', /^<\?xml[\s\S]*<svg [^>]*width="1024"/.test(readFileSync(join(DL, svgFile), 'utf8')));
 check('newsletter shown after download', !(await page.$eval('#newsletter', (n) => n.hidden)));
-const reqBefore = external.length;
-await setVal(page, '#nl-email', 'test@example.com');
-await page.click('#nl-form button');
-check('newsletter is a no-op placeholder (message shown, no request)', (await page.$eval('#nl-msg', (m) => m.textContent)).length > 0 && external.length === reqBefore);
+{
+  const mlBefore = mlPosts.length;
+  await setVal(page, '#nl-email', 'test@example.com');
+  await page.click('#nl-form button');
+  await waitNlDone(page);
+  const m = await nlMsg(page);
+  check('generator newsletter box posts to MailerLite and confirms', mlPosts.length === mlBefore + 1 && m.text === 'Check your inbox to confirm.' && m.cls.includes('ok'), JSON.stringify(m));
+}
 
 // Prefill via fragment
 const p2 = await newPage();
@@ -255,14 +280,67 @@ for (const [path, lang] of [['/', 'en'], ['/it/', 'it']]) {
   check(`hub[${lang}] links to QR tools + newsletter`, hub.links.join() === exp.join() && hub.nl === (lang === 'it' ? '/it/newsletter/' : '/newsletter/'));
   check(`hub[${lang}] tagline h1`, lang === 'it' ? hub.h1.startsWith('Strumenti gratuiti') : hub.h1 === 'Free tools. No subscription. No signup required. Forever.', hub.h1);
   await hp.goto(BASE + (lang === 'it' ? '/it/newsletter/' : '/newsletter/'), { waitUntil: 'networkidle0' });
-  const before = external.length;
-  await setVal(hp, '#nl-email', 'test@example.com');
-  await hp.click('#nl-form button');
-  await settle(hp);
-  check(`newsletter page[${lang}] named + placeholder no-op`, (await hp.$eval('h1', (h) => h.textContent)) === 'SaaS Trap of the Week' && (await hp.$eval('#nl-msg', (m) => m.textContent)).length > 0 && external.length === before);
+  check(`newsletter page[${lang}] named`, (await hp.$eval('h1', (h) => h.textContent)) === 'SaaS Trap of the Week');
   await hp.close();
+  const np = await newPage();
+  const ml = await mockMailerLite(np);
+  await np.goto(BASE + (lang === 'it' ? '/it/newsletter/' : '/newsletter/'), { waitUntil: 'networkidle0' });
+  const okText = lang === 'it' ? 'Controlla la posta per confermare.' : 'Check your inbox to confirm.';
+  const form = await np.evaluate(() => { const f = document.querySelector('#nl-form'); return { action: f.action, method: f.method, email: f.querySelector('#nl-email').name,
+    hidden: [...f.querySelectorAll('input[type=hidden]')].map((i) => i.name + '=' + i.value).join('&'), consent: document.querySelector('#nl-consent').textContent,
+    privacy: document.querySelector('#nl-consent a')?.getAttribute('href'), hpVisible: document.querySelector('#nl-website').getBoundingClientRect().left >= 0 }; });
+  check(`newsletter[${lang}] form targets MailerLite embedded endpoint`, form.action === 'https://assets.mailerlite.com/jsonp/2342555/forms/201738245033166731/subscribe' && form.method === 'post' && form.email === 'fields[email]' && form.hidden === 'ml-submit=1&anticsrf=true', JSON.stringify(form));
+  check(`newsletter[${lang}] consent mentions MailerLite + double opt-in + privacy link`, /MailerLite/.test(form.consent) && /opt-in/i.test(form.consent) && form.privacy === (lang === 'it' ? '/it/privacy/' : '/privacy/'));
+  check(`newsletter[${lang}] honeypot is off-screen`, !form.hpVisible);
+  // invalid email: no request, error shown
+  let n0 = mlPosts.length;
+  await setVal(np, '#nl-email', 'not-an-email');
+  await np.click('#nl-form button');
+  let m = await nlMsg(np);
+  check(`newsletter[${lang}] invalid email → error, no request`, mlPosts.length === n0 && m.cls.includes('err') && (await np.$eval('#nl-email', (i) => i.getAttribute('aria-invalid'))) === 'true', JSON.stringify(m));
+  // success: loading state, then confirmation
+  await setVal(np, '#nl-email', 'reader@example.com');
+  await np.click('#nl-form button');
+  const busy = await np.$eval('#nl-form button', (b) => ({ busy: b.getAttribute('aria-busy'), disabled: b.disabled, text: b.textContent }));
+  check(`newsletter[${lang}] loading state while sending`, busy.busy === 'true' && busy.disabled && busy.text === (lang === 'it' ? 'Invio…' : 'Sending…'), JSON.stringify(busy));
+  await waitNlDone(np);
+  m = await nlMsg(np);
+  const post = mlPosts.at(-1);
+  check(`newsletter[${lang}] success → "${okText}"`, m.text === okText && m.cls.includes('ok') && (await np.$eval('#nl-email', (i) => i.value)) === '', JSON.stringify(m));
+  check(`newsletter[${lang}] request: urlencoded email + ml-submit + anticsrf only, no cookies`, post && post.method === 'POST' && /x-www-form-urlencoded/.test(post.type) && post.body === 'fields%5Bemail%5D=reader%40example.com&ml-submit=1&anticsrf=true' && !post.cookie, JSON.stringify(post));
+  // API error
+  ml.mode = 'invalid';
+  await setVal(np, '#nl-email', 'reader@example.com');
+  await np.click('#nl-form button');
+  await waitNlDone(np);
+  m = await nlMsg(np);
+  check(`newsletter[${lang}] MailerLite validation error shown`, m.cls.includes('err') && m.text === (lang === 'it' ? 'Inserisci un indirizzo email valido.' : 'Please enter a valid email address.'), JSON.stringify(m));
+  // network failure
+  ml.mode = 'down';
+  await setVal(np, '#nl-email', 'reader@example.com');
+  await np.click('#nl-form button');
+  await waitNlDone(np);
+  m = await nlMsg(np);
+  check(`newsletter[${lang}] network error shown, button re-enabled`, m.cls.includes('err') && m.text.length > 0 && !(await np.$eval('#nl-form button', (b) => b.disabled)), JSON.stringify(m));
+  // honeypot filled: fake success, nothing sent
+  ml.mode = 'ok';
+  n0 = mlPosts.length;
+  await setVal(np, '#nl-website', 'http://spam.example');
+  await setVal(np, '#nl-email', 'bot@example.com');
+  await np.click('#nl-form button');
+  m = await nlMsg(np);
+  check(`newsletter[${lang}] honeypot → no request`, mlPosts.length === n0 && m.text === okText);
+  await np.close();
 }
 
+for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
+  const pp = await newPage();
+  await pp.goto(BASE + path, { waitUntil: 'networkidle0' });
+  const txt = await pp.$eval('main', (m) => m.textContent);
+  check(`privacy[${lang}] explains MailerLite, double opt-in, unsubscribe`, /MailerLite/.test(txt) && (lang === 'it' ? /doppio opt-in/.test(txt) && /disiscriverti/.test(txt) : /double opt-in/.test(txt) && /unsubscribe at any time/.test(txt)));
+  await pp.close();
+}
+check('MailerLite only contacted on submit (all mocked)', mlPosts.every((p) => p.url === 'https://assets.mailerlite.com/jsonp/2342555/forms/201738245033166731/subscribe'), String(mlPosts.length));
 check('no requests to external origins (no CDN / tracking)', external.length === 0, external.slice(0, 5).join(', '));
 check('no console errors / CSP violations', consoleErrors.length === 0, consoleErrors.slice(0, 5).join(' | '));
 

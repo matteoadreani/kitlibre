@@ -18,13 +18,17 @@ No account, no trial that expires, no paywall in front of the basics, and your f
   post character counter.
 
 Newsletter: **SaaS Trap of the Week** (`/newsletter/`; saastrap.com redirects there). It is optional and never required
-to use the tools (the signup form is currently a placeholder that sends and stores nothing).
+to use the tools. Signup goes to MailerLite with double opt-in (see below).
 
 ## Privacy
 
 - 100 % client-side: QR codes, logos, Wi-Fi passwords and checked images are processed **in your browser** and never uploaded.
-- No backend, no cookies, no analytics, no third-party requests: every library is bundled locally and a strict CSP
+- No backend, no cookies, no analytics, no third-party scripts: every library is bundled locally and a strict CSP
   (`public/_headers`) blocks external scripts, fonts and CDNs.
+- The only third-party request is the optional newsletter signup: on submit, the browser posts **just the email address**
+  to MailerLite's public embedded-form endpoint (`SITE.newsletterFormAction` in `src/config.ts`; no API key, no MailerLite
+  script, `credentials: 'omit'`). Double opt-in is on, so nobody is added until they confirm by email. A hidden honeypot
+  field drops naive bots. The CSP allows `connect-src` / `form-action` only to `https://assets.mailerlite.com`.
 - The checker never opens the decoded link; it only compares the domain against the list in `src/domains.ts`.
 
 ## Quick start
@@ -76,7 +80,7 @@ npm run build          # type-check + production build to dist/
 npm run build:preview  # same, with noindex (robots + meta) for preview deployments (production build is indexable)
 npm test               # unit tests: payload builders, generate→render→decode round-trips (matrix + SVG), classifier
 npm run test:e2e       # headless Chrome on dist/: every QR type → PNG & SVG decode back, logo, downloads,
-                       # newsletter no-op, trap checker on sample photos/screenshots (EN+IT), SEO/a11y/mobile/CSP checks
+                       # newsletter signup (MailerLite mocked: success/errors/honeypot), trap checker on sample photos/screenshots (EN+IT), SEO/a11y/mobile/CSP checks
 npm run fixtures       # regenerate sample images in tests/fixtures (Python + Pillow + numpy)
 ```
 
@@ -93,14 +97,13 @@ src/domains.ts     known dynamic-QR / shortener / discontinued redirect domains 
 src/classify.ts    decoded text → verdict (dynamic, shortener, discontinued, static, maybe-short, not-url)
 src/decode.ts      multi-scale jsQR decoding + BarcodeDetector
 src/generator.ts   generator UI      src/checker.ts   checker UI (file, drag&drop, paste, camera)
-src/newsletter.ts  TODO placeholder form – sends/stores nothing
+src/newsletter.ts  newsletter signup → MailerLite embedded-form endpoint (loading, success, errors, honeypot)
 scripts/pages.ts   build-time HTML, sitemap, robots, manifest
 public/_headers    CSP & security headers (Cloudflare Pages format)
 ```
 
 ## TODO
 
-- Newsletter: connect a privacy-friendly double-opt-in provider (currently a no-op placeholder).
 - Keep `src/domains.ts` updated (PRs welcome — please include a source).
 - Possible extras: more locales, batch generation, print-ready PDF, EPS export.
 

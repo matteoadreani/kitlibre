@@ -12,8 +12,13 @@ export const SITE = {
   url: (typeof process !== 'undefined' && process.env?.KIT_SITE_URL) || 'https://kitlibre.com',
   /** Public source repository, linked from the footer, the hub ("Open source" principle) and the privacy page. Empty = "coming soon". */
   repoUrl: 'https://github.com/matteoadreani/kitlibre',
-  /** Newsletter name (placeholder signup, see src/newsletter.ts). Domain saastrap.com redirects to /newsletter/. */
+  /** Newsletter name. Domain saastrap.com redirects to /newsletter/. */
   newsletter: 'SaaS Trap of the Week',
+  /**
+   * Public MailerLite embedded-form endpoint (form "SaaS Trap - kitlibre.com", group "SaaS Trap of the Week", double opt-in).
+   * Not a secret: it is the same action URL MailerLite puts in its HTML embed code. No API key is ever used on the site.
+   */
+  newsletterFormAction: 'https://assets.mailerlite.com/jsonp/2342555/forms/201738245033166731/subscribe',
   /** Only for preview builds (KIT_NOINDEX=1): <meta name="robots" content="noindex"> + robots.txt disallow. */
   noindex: typeof process !== 'undefined' ? process.env?.KIT_NOINDEX === '1' : false,
 } as const;
