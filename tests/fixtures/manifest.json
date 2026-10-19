@@ -1,0 +1,47 @@
+[
+  {
+    "file": "qrco-de-photo.jpg",
+    "content": "https://qrco.de/bf4Y2u",
+    "verdict": "dynamic"
+  },
+  {
+    "file": "lead-me-screenshot.png",
+    "content": "https://l.ead.me/bbLviR",
+    "verdict": "dynamic"
+  },
+  {
+    "file": "me-qr-photo.jpg",
+    "content": "https://me-qr.com/cqMeW6cf",
+    "verdict": "dynamic"
+  },
+  {
+    "file": "qrfy-screenshot.png",
+    "content": "https://qrfy.io/UJaRm-kJdH",
+    "verdict": "dynamic"
+  },
+  {
+    "file": "qr-codes-io-photo.jpg",
+    "content": "http://qr-codes.io/1tTjBstLWTE",
+    "verdict": "dynamic"
+  },
+  {
+    "file": "bitly-photo.jpg",
+    "content": "https://bit.ly/3MqL8sO",
+    "verdict": "shortener"
+  },
+  {
+    "file": "goo-gl-screenshot.png",
+    "content": "https://goo.gl/maps/Xy12AbCd",
+    "verdict": "discontinued"
+  },
+  {
+    "file": "static-url-photo.jpg",
+    "content": "https://www.trattoria-esempio.it/menu?lang=it",
+    "verdict": "static"
+  },
+  {
+    "file": "static-wifi-screenshot.png",
+    "content": "WIFI:T:WPA;S:Trattoria Guest;P:benvenuti2026;;",
+    "verdict": "not-url"
+  }
+]

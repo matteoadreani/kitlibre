@@ -1,0 +1,24 @@
+// Quick smoke test of a deployed URL: node tests/live-smoke.mjs https://kitlibre.com
+import puppeteer from 'puppeteer-core';
+import { PNG } from 'pngjs';
+import jsQR from 'jsqr';
+const BASE = process.argv[2] || 'https://kitlibre.com';
+const b = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox'] });
+const errors = [], external = [];
+const p = await b.newPage();
+p.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+p.on('pageerror', (e) => errors.push(String(e)));
+p.on('request', (r) => { if (!r.url().startsWith(BASE) && !/^(data|blob):/.test(r.url())) external.push(r.url()); });
+await p.goto(BASE + '/qr/#url=' + encodeURIComponent('https://example.com/live'), { waitUntil: 'networkidle0' });
+await p.waitForFunction(() => window.__kitQr?.current());
+const png = PNG.sync.read(Buffer.from((await p.evaluate(() => window.__kitQr.pngDataUrl())).split(',')[1], 'base64'));
+const gen = jsQR(new Uint8ClampedArray(png.data), png.width, png.height)?.data;
+await p.goto(BASE + '/it/qr/verifica/', { waitUntil: 'networkidle0' });
+await (await p.$('#chk-file')).uploadFile(new URL('./fixtures/qrco-de-photo.jpg', import.meta.url).pathname);
+await p.waitForSelector('#result[data-verdict]', { timeout: 15000 });
+const verdict = await p.$eval('#result', (r) => r.dataset.verdict);
+await b.close();
+const ok = gen === 'https://example.com/live' && verdict === 'dynamic' && !errors.length && !external.length;
+console.log(JSON.stringify({ generatorRoundTrip: gen, checkerVerdict: verdict, consoleErrors: errors, externalRequests: external }, null, 1));
+console.log(ok ? 'LIVE SMOKE OK' : 'LIVE SMOKE FAILED');
+process.exit(ok ? 0 : 1);

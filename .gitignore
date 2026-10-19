@@ -1,0 +1,45 @@
+# dependencies & build output
+node_modules/
+dist/
+coverage/
+
+# HTML pages generated at build time by scripts/pages.ts (see vite.config.ts)
+/index.html
+/404.html
+/qr/
+/it/
+/newsletter/
+/privacy/
+/check/
+
+# files generated at build time into public/
+public/sitemap.xml
+public/robots.txt
+public/site.webmanifest
+public/_redirects
+public/favicon.svg
+
+# deploy artefacts & secrets (never commit tokens)
+.deploy/
+.wrangler/
+agent-tools/
+.env
+.env.*
+*.jwt
+*token*.json
+*token*.txt
+*.pem
+*.key
+.dev.vars
+
+# test artefacts
+tests/fixtures/out/
+playwright-report/
+test-results/
+*.log
+npm-debug.log*
+
+# editor / OS
+.DS_Store
+.vscode/
+.idea/

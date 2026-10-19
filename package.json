@@ -1,0 +1,51 @@
+{
+  "name": "kitlibre",
+  "version": "1.0.0",
+  "description": "Kitlibre: free tools. No subscription. No signup required. Forever. Static QR generator + QR trap checker, 100% client-side.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:preview": "KIT_NOINDEX=1 npm run build",
+    "preview": "vite preview --port 4173",
+    "test": "vitest run",
+    "test:e2e": "node tests/e2e.mjs",
+    "fixtures": "python3 tests/make_fixtures.py",
+    "assets": "python3 scripts/make_assets.py",
+    "test:live": "node tests/live-smoke.mjs https://kitlibre.com"
+  },
+  "keywords": [
+    "qr-code",
+    "qr-generator",
+    "static-qr",
+    "privacy",
+    "free-tools",
+    "open-source"
+  ],
+  "author": "Matteo Adreani",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "jsqr": "^1.4.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@types/node": "^26.6.5",
+    "@types/pngjs": "^6.0.5",
+    "@types/qrcode": "^1.5.6",
+    "pngjs": "^7.0.0",
+    "puppeteer-core": "^24.43.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^4.1.12"
+  },
+  "private": true,
+  "homepage": "https://kitlibre.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matteoadreani/kitlibre.git"
+  },
+  "bugs": {
+    "url": "https://github.com/matteoadreani/kitlibre/issues"
+  }
+}
