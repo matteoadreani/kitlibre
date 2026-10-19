@@ -1,0 +1,29 @@
+{
+  "ort": {
+    "package": "onnxruntime-web",
+    "version": "1.30.0",
+    "dir": "/engine/ort-1.30.0/",
+    "entry": "ort.wasm.min.mjs",
+    "files": ["ort.wasm.min.mjs", "ort-wasm-simd-threaded.mjs", "ort-wasm-simd-threaded.wasm"],
+    "licence": "MIT",
+    "licenceFile": "licenses/onnxruntime-MIT.txt",
+    "homepage": "https://github.com/microsoft/onnxruntime"
+  },
+  "model": {
+    "id": "ormbg-int8",
+    "name": "ormbg (Open Remove Background Model), int8 quantized ONNX",
+    "source": "https://huggingface.co/onnx-community/ormbg-ONNX/resolve/034e2d884afbab897e10e78fc5bb566b29533fd6/onnx/model_quantized.onnx",
+    "sha256": "ffbcae62a7b675d616e64cb392ee028786c4cf74f83596590fba13733ef00171",
+    "bytes": 44315205,
+    "partBytes": 20971520,
+    "dir": "/engine/models/ormbg-int8-ffbcae62/",
+    "input": "pixel_values",
+    "output": "alphas",
+    "size": 1024,
+    "licence": "Apache-2.0",
+    "licenceFile": "licenses/Apache-2.0.txt",
+    "author": "Marvin Schirrmacher",
+    "homepage": "https://huggingface.co/schirrmacher/ormbg"
+  },
+  "pagesFileLimit": 26214400
+}

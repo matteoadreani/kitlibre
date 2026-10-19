@@ -18,6 +18,11 @@ writeFileSync(resolve(root, 'public/_redirects'), redirectsFile());
 writeFileSync(resolve(root, 'public/favicon.svg'), LOGO_SVG);
 
 export default defineConfig({
+  // The background-remover worker goes to /engine/ so it gets the engine headers (CSP with 'wasm-unsafe-eval', COEP).
+  worker: {
+    format: 'es',
+    rollupOptions: { output: { entryFileNames: 'engine/[name]-[hash].js', chunkFileNames: 'engine/[name]-[hash].js', assetFileNames: 'engine/[name]-[hash][extname]' } },
+  },
   build: {
     target: 'es2020',
     rollupOptions: {
