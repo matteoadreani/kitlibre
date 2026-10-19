@@ -43,3 +43,9 @@ npm-debug.log*
 .DS_Store
 .vscode/
 .idea/
+
+# background remover: generated pages, engine (ORT runtime + model parts, see scripts/engine/prepare.mjs), model download cache
+/remove-bg/
+/remove-bg-alternative/
+public/engine/
+.cache/

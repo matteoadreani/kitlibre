@@ -2,6 +2,7 @@
 import { SITE, BRAND_NAME } from '../src/config';
 import { STRINGS, ROUTES, LEGACY_REDIRECTS, type Dict, type Lang, type PageId } from '../src/i18n';
 import { DOMAINS } from '../src/domains';
+import ENGINE from '../src/bg/engine.json';
 
 const LANGS: Lang[] = ['en', 'it'];
 const h = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -25,7 +26,7 @@ function header(t: Dict, lang: Lang, page: PageId | null) {
   return `<a class="skip" href="#main">${h(t.skip)}</a>
 <header class="site-header"><div class="wrap bar">
   <a class="brand" href="${ROUTES.hub[lang]}" aria-label="${h(BRAND_NAME)} – ${h(t.navTools)}">${LOGO_MARK}<span class="wordmark">${wordmark()}</span></a>
-  <nav aria-label="Main">${link('hub', t.navTools)}${link('generator', t.navGenerator)}${link('checker', t.navChecker)}</nav>
+  <nav aria-label="Main">${link('hub', t.navTools)}${link('bg', t.navBg)}${link('generator', t.navGenerator)}${link('checker', t.navChecker)}</nav>
   <div class="lang" role="group" aria-label="${h(t.langSwitch)}">
     <a href="${lang === 'en' ? '#' : target}" hreflang="en" lang="en"${lang === 'en' ? ' aria-current="true"' : ''} data-lang-link="en">EN</a>
     <a href="${lang === 'it' ? '#' : target}" hreflang="it" lang="it"${lang === 'it' ? ' aria-current="true"' : ''} data-lang-link="it">IT</a>
@@ -38,7 +39,7 @@ function footer(t: Dict, lang: Lang) {
   return `<footer class="site-footer"><div class="wrap">
   <p class="foot-brand">${LOGO_MARK}<strong>${h(BRAND_NAME)}</strong> — ${h(t.tagline)}</p>
   <p>${h(t.footerNoTrack)}</p>
-  <p class="foot-links"><a href="${ROUTES.hub[lang]}">${h(t.navTools)}</a> · <a href="${ROUTES.generator[lang]}">${h(t.navGenerator)}</a> · <a href="${ROUTES.checker[lang]}">${h(t.navChecker)}</a> · <a href="${ROUTES.newsletter[lang]}">${h(t.navNewsletter)}</a> · <a href="${ROUTES.privacy[lang]}">${h(t.navPrivacy)}</a> · ${repo}</p>
+  <p class="foot-links"><a href="${ROUTES.hub[lang]}">${h(t.navTools)}</a> · <a href="${ROUTES.bg[lang]}">${h(t.navBg)}</a> · <a href="${ROUTES.bgAlt[lang]}">${h(t.navBgAlt)}</a> · <a href="${ROUTES.generator[lang]}">${h(t.navGenerator)}</a> · <a href="${ROUTES.checker[lang]}">${h(t.navChecker)}</a> · <a href="${ROUTES.newsletter[lang]}">${h(t.navNewsletter)}</a> · <a href="${ROUTES.privacy[lang]}">${h(t.navPrivacy)}</a> · ${repo}</p>
 </div></footer>`;
 }
 
@@ -134,6 +135,7 @@ ${links.length ? `<p class="card-links">${links.map(([href, label], i) => `<a cl
 <div class="wrap content">
 <section aria-labelledby="tools-h"><h2 id="tools-h" class="section-h">${h(t.toolsH)}</h2>
 <ul class="tool-grid">
+${card(t.bgCardT, t.bgCardP, [[ROUTES.bg[lang], t.openTool + ' →']])}
 ${card(t.qrCardT, t.qrCardP, [[ROUTES.generator[lang], t.openTool + ' →']])}
 ${card(t.chkCardT, t.chkCardP, [[ROUTES.checker[lang], t.openTool + ' →']])}
 ${t.soonTools.map(([a, b]) => card(a, b, [], true)).join('\n')}
@@ -304,13 +306,89 @@ ${faqBlock(t.faqH, t.chkFaq)}
 </div>`;
 }
 
+
+const REMOVE_BG_FAQ = 'https://www.remove.bg/faq';
+/** 1 Dec 2026, 9:00 CET, as stated in the remove.bg FAQ. */
+export const REMOVE_BG_DEADLINE = '2026-12-01T08:00:00Z';
+
+function bgBody(t: Dict, lang: Lang) {
+  const m = ENGINE.model, o = ENGINE.ort;
+  const mb = `${Math.round(m.bytes / 1e6)} MB`;
+  const modes = (['transparent', 'white', 'black', 'color'] as const)
+    .map((v, i) => `<label class="seg"><input type="radio" name="bgmode" value="${v}"${i === 0 ? ' checked' : ''}><span class="sw sw-${v}">${h({ transparent: t.bgTransparent, white: t.bgWhite, black: t.bgBlack, color: t.bgColor }[v])}</span></label>`)
+    .join('');
+  const link = (href: string, text: string) => `<a href="${href}" rel="noopener">${h(text)}</a>`;
+  const credits = h(t.bgCredits)
+    .replace('{model}', link(m.homepage, 'ormbg'))
+    .replace('{author}', h(m.author))
+    .replace('{licence}', link(`${m.dir}LICENSE.txt`, m.licence))
+    .replace('{ort}', link(o.homepage, 'ONNX Runtime Web'))
+    .replace('{ortLicence}', link(`${o.dir}LICENSE.txt`, o.licence));
+  return `<section class="hero wrap"><h1>${h(t.bgH1)}</h1><p class="lead">${h(t.bgLead)}</p>
+<ul class="badges"><li>${h(t.badgeNoSignup)}</li><li>${h(t.bgBadgeNoWatermark)}</li><li>${h(t.bgBadgeFullRes)}</li><li>${h(t.badgeOnDevice)}</li><li>${h(t.badgeOpenSource)}</li></ul></section>
+<div class="wrap bgtool">
+<section class="card" aria-labelledby="bg-tool-h"><h2 id="bg-tool-h" class="sr-only">${h(t.bgToolH)}</h2>
+<div class="drop" id="bg-drop" tabindex="0" role="button" aria-describedby="bg-drop-hint">
+<svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path fill="currentColor" d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm0 2v9.6l3.3-3.3 3 3L16 9.6l3 3V5zm0 14h14v-3.6l-3-3-4.7 4.7-3-3L5 17.4zM8.5 6.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4z"/></svg>
+<p><strong>${h(t.bgDropTitle)}</strong> <label class="linklike" for="bg-file">${h(t.bgChoose)}</label></p>
+<input id="bg-file" type="file" accept="image/*" class="sr-only">
+<p class="hint" id="bg-drop-hint">${h(t.bgDropHint.replace('{mb}', mb))}</p>
+</div>
+<progress id="bg-progress" max="1" value="0" hidden aria-label="${h(t.bgStStarting)}"></progress>
+<p class="bg-status" id="bg-status" role="status" aria-live="polite"></p>
+<p class="hint privacy">${h(t.bgPrivacy)}</p>
+</section>
+<section class="card bg-result" id="bg-result" hidden aria-labelledby="bg-res-h">
+<div class="bg-res-head"><h2 id="bg-res-h">${h(t.bgResultH)}</h2><button type="button" class="btn ghost small" id="bg-compare" aria-pressed="false">${h(t.bgCompare)}</button></div>
+<div class="bg-stage"><canvas id="bg-canvas" role="img" aria-label="${h(t.bgResultH)}"></canvas></div>
+<fieldset class="bg-modes"><legend>${h(t.bgBgLegend)}</legend><div class="segs">${modes}
+<label class="bg-color-l" for="bg-color"><span class="sr-only">${h(t.bgColorPick)}</span></label><input id="bg-color" type="color" value="#0f766e"></div></fieldset>
+<div class="dl"><button type="button" class="btn primary" id="bg-share" title="${h(t.bgSaveHint)}" hidden>${h(t.bgSave)}</button><button type="button" class="btn ghost" id="bg-dl-file" hidden>${h(t.bgDlFile)}</button><button type="button" class="btn primary" id="bg-dl-png">${h(t.bgDlPng)}</button><button type="button" class="btn" id="bg-dl-jpg" disabled>${h(t.bgDlJpg)}</button></div>
+<div class="row bg-more"><button type="button" class="btn ghost" id="bg-copy">${h(t.bgCopy)}</button><button type="button" class="btn ghost" id="bg-again">${h(t.bgAgain)}</button></div>
+<p class="hint" id="bg-meta"></p>
+</section>
+<section class="newsletter" id="newsletter" aria-labelledby="nl-h"><h2 id="nl-h">${h(t.nlH)}</h2><p>${h(t.nlText)}</p>
+${nlForm(t, lang)}
+</section>
+</div>
+<div class="wrap content">
+<section class="card rbg-note" aria-labelledby="rbg-h"><h2 id="rbg-h">${h(t.bgRbgH)}</h2>
+<p>${h(t.bgRbgP)} <strong data-deadline="${REMOVE_BG_DEADLINE}" hidden></strong></p>
+<p class="cta"><a class="btn" href="${ROUTES.bgAlt[lang]}">${h(t.bgRbgLink)} →</a> <a href="${REMOVE_BG_FAQ}" rel="noopener nofollow">${h(t.altSource)}</a></p></section>
+<section class="prose"><h2>${h(t.bgHowH)}</h2><ol>${t.bgHow.map((x) => `<li>${h(x)}</li>`).join('')}</ol></section>
+${faqBlock(t.faqH, t.bgFaq)}
+<section class="prose" aria-labelledby="cred-h"><h2 id="cred-h">${h(t.bgCreditsH)}</h2><p>${credits}</p></section>
+</div>`;
+}
+
+function bgAltBody(t: Dict, lang: Lang) {
+  const cta = `<a class="btn primary" href="${ROUTES.bg[lang]}">${h(t.altCta)} →</a>`;
+  const [c1, c2] = t.altCmpCols;
+  return `<section class="hero wrap"><h1>${h(t.altH1)}</h1><p class="lead">${h(t.altLead)}</p><p class="cta">${cta}</p></section>
+<div class="wrap content">
+<section class="prose"><h2>${h(t.altFactsH)}</h2><ul>${t.altFacts.map((x) => `<li>${h(x)}</li>`).join('')}</ul>
+<p class="hint">${h(t.altSource)}: <a href="${REMOVE_BG_FAQ}" rel="noopener nofollow">remove.bg/faq</a> (${h(t.altChecked)}).</p></section>
+<section class="prose"><h2>${h(t.altCmpH)}</h2><div class="table-wrap"><table>
+<thead><tr><th scope="col"><span class="sr-only">Feature</span></th><th scope="col">${h(c1)}</th><th scope="col">${h(c2)}</th></tr></thead>
+<tbody>${t.altCmpRows.map((r) => `<tr><th scope="row">${h(r[0])}</th><td class="good">${h(r[1])}</td><td>${h(r[2])}</td></tr>`).join('')}</tbody>
+</table></div></section>
+<section class="card alt-try" aria-labelledby="try-h"><h2 id="try-h">${h(t.altToolH)}</h2><p>${h(t.altToolP)}</p><p class="cta">${cta}</p></section>
+<section class="prose"><h2>${h(t.altFitH)}</h2><p>${h(t.altFitP)}</p></section>
+${faqBlock(t.faqH, t.altFaq)}
+<section class="newsletter" id="newsletter" aria-labelledby="nl-h"><h2 id="nl-h">${h(t.nlH)}</h2><p>${h(t.nlText)}</p>
+${nlForm(t, lang)}
+</section>
+<p class="hint disclaimer">${h(t.altDisclaimer)}</p>
+</div>`;
+}
+
 function privacyBody(t: Dict) {
   return `<section class="wrap prose narrow"><h1>${h(t.privH1)}</h1>${t.privBody.map((p) => `<p>${h(p)}</p>`).join('')}${SITE.repoUrl ? `<p>${h(t.privRepo)} <a href="${SITE.repoUrl}" rel="noopener">${h(SITE.repoUrl.replace('https://', ''))}</a></p>` : ''}</section>`;
 }
 
 function notFoundBody(t: Dict, lang: Lang) {
   return `<section class="wrap prose narrow"><h1>${h(t.notFoundH1)}</h1><p>${h(t.notFoundP)}</p>
-<p><a class="btn primary" href="${ROUTES.generator[lang]}">${h(t.navGenerator)}</a> <a class="btn" href="${ROUTES.checker[lang]}">${h(t.navChecker)}</a> <a class="btn" href="${ROUTES.hub[lang]}">${h(t.navTools)}</a></p></section>`;
+<p><a class="btn primary" href="${ROUTES.generator[lang]}">${h(t.navGenerator)}</a> <a class="btn" href="${ROUTES.bg[lang]}">${h(t.navBg)}</a> <a class="btn" href="${ROUTES.checker[lang]}">${h(t.navChecker)}</a> <a class="btn" href="${ROUTES.hub[lang]}">${h(t.navTools)}</a></p></section>`;
 }
 
 const faqLd = (items: [string, string][]) => ({
@@ -341,6 +419,12 @@ const crumbs = (lang: Lang, name: string, url: string) => ({
   ],
 });
 
+const trail = (items: [string, string][]) => ({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: items.map(([name, item], i) => ({ '@type': 'ListItem', position: i + 1, name: brandify(name), item })),
+});
+
 export interface GeneratedPage { file: string; html: string }
 
 export function generatePages(): GeneratedPage[] {
@@ -356,8 +440,9 @@ export function generatePages(): GeneratedPage[] {
           { '@context': 'https://schema.org', '@type': 'WebSite', name: BRAND_NAME, url: abs(ROUTES.hub[lang]), inLanguage: lang, description: brandify(t.hubDesc) },
           { '@context': 'https://schema.org', '@type': 'Organization', name: BRAND_NAME, url: SITE.url, logo: abs('/logo.png'), slogan: t.tagline },
           { '@context': 'https://schema.org', '@type': 'ItemList', itemListElement: [
-            { '@type': 'ListItem', position: 1, name: t.qrCardT, url: abs(ROUTES.generator[lang]) },
-            { '@type': 'ListItem', position: 2, name: t.chkCardT, url: abs(ROUTES.checker[lang]) },
+            { '@type': 'ListItem', position: 1, name: t.bgCardT, url: abs(ROUTES.bg[lang]) },
+            { '@type': 'ListItem', position: 2, name: t.qrCardT, url: abs(ROUTES.generator[lang]) },
+            { '@type': 'ListItem', position: 3, name: t.chkCardT, url: abs(ROUTES.checker[lang]) },
           ] },
         ],
       }),
@@ -381,6 +466,29 @@ export function generatePages(): GeneratedPage[] {
       html: layout({
         id: 'checker', lang, title: t.chkTitle, desc: t.chkDesc, body: checkerBody(t, lang), og: 'og-qr',
         ld: [appLd(t.chkH1, t.chkDesc, abs(ROUTES.checker[lang]), lang), faqLd(t.chkFaq), crumbs(lang, t.chkH1, abs(ROUTES.checker[lang]))],
+      }),
+    });
+    out.push({
+      file: file(ROUTES.bg[lang]),
+      html: layout({
+        id: 'bg', lang, title: t.bgTitle, desc: t.bgDesc, body: bgBody(t, lang), og: 'og-bg',
+        ld: [
+          { ...appLd(t.bgH1, t.bgDesc, abs(ROUTES.bg[lang]), lang), applicationCategory: 'MultimediaApplication', browserRequirements: 'Requires WebAssembly' },
+          faqLd(t.bgFaq),
+          { '@context': 'https://schema.org', '@type': 'HowTo', name: brandify(t.bgH1), inLanguage: lang, step: t.bgHow.map((x, i) => ({ '@type': 'HowToStep', position: i + 1, text: brandify(x) })) },
+          trail([[BRAND_NAME, abs(ROUTES.hub[lang])], [t.bgCardT, abs(ROUTES.bg[lang])]]),
+        ],
+      }),
+    });
+    out.push({
+      file: file(ROUTES.bgAlt[lang]),
+      html: layout({
+        id: 'bgAlt', lang, title: t.altTitle, desc: t.altDesc, body: bgAltBody(t, lang), og: 'og-bg',
+        ld: [
+          { '@context': 'https://schema.org', '@type': 'WebPage', name: brandify(t.altH1), description: brandify(t.altDesc), url: abs(ROUTES.bgAlt[lang]), inLanguage: lang, publisher: { '@type': 'Organization', name: BRAND_NAME } },
+          faqLd(t.altFaq),
+          trail([[BRAND_NAME, abs(ROUTES.hub[lang])], [t.bgCardT, abs(ROUTES.bg[lang])], [t.altH1, abs(ROUTES.bgAlt[lang])]]),
+        ],
       }),
     });
     out.push({

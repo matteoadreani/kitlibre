@@ -7,6 +7,13 @@ No account, no trial that expires, no paywall in front of the basics, and your f
 
 ## Tools
 
+- **Background remover** (`/remove-bg/` · `/it/rimuovi-sfondo/`): drop, pick, paste or photograph an image; an AI model
+  ([ormbg](https://huggingface.co/schirrmacher/ormbg), Apache-2.0, int8) runs **in the browser** with
+  [ONNX Runtime Web](https://onnxruntime.ai/) (WASM, multi-threaded when cross-origin isolated). Transparent PNG, or a
+  white/black/custom background as PNG or JPG; on iPhone/iPad a primary **Save to Photos** button opens the share sheet
+  ("Save Image"), with the classic download kept as "Download file"; copy to clipboard; compare with the original. The 44 MB model is downloaded
+  once and kept in the browser cache. Companion page: **free remove.bg alternative** (`/remove-bg-alternative/` ·
+  `/it/alternativa-remove-bg/`), a factual comparison (remove.bg closes as a standalone site on 1 Dec 2026, per its FAQ).
 - **Static QR generator** (`/qr/` · `/it/qr/`): URL (with optional UTM builder), text, Wi-Fi, contact (vCard 3.0),
   email, phone, SMS. Colours, PNG size, error-correction level, quiet zone, optional centre logo. Download **PNG** and **SVG**.
   The encoded data *is* the final content: no redirect, so the codes never expire.
@@ -29,6 +36,9 @@ to use the tools. Signup goes to MailerLite with double opt-in (see below).
   to MailerLite's public embedded-form endpoint (`SITE.newsletterFormAction` in `src/config.ts`; no API key, no MailerLite
   script, `credentials: 'omit'`). Double opt-in is on, so nobody is added until they confirm by email. A hidden honeypot
   field drops naive bots. The CSP allows `connect-src` / `form-action` only to `https://assets.mailerlite.com`.
+- The background remover processes images on the device: the only downloads are the model and the runtime, served from
+  kitlibre.com. Its pages get a page-scoped CSP (adds `'wasm-unsafe-eval'` and `worker-src 'self'`) and
+  `Cross-Origin-Embedder-Policy: require-corp`; every other page keeps the strict site CSP.
 - The checker never opens the decoded link; it only compares the domain against the list in `src/domains.ts`.
 
 ## Quick start
@@ -48,9 +58,10 @@ Issues and pull requests are welcome, especially new dynamic-QR / shortener doma
 
 ## Routes
 
-EN / IT: hub `/` · `/it/`, generator `/qr/` · `/it/qr/`, checker `/qr/check/` · `/it/qr/verifica/`,
+EN / IT: hub `/` · `/it/`, background remover `/remove-bg/` · `/it/rimuovi-sfondo/`, remove.bg alternative
+`/remove-bg-alternative/` · `/it/alternativa-remove-bg/`, generator `/qr/` · `/it/qr/`, checker `/qr/check/` · `/it/qr/verifica/`,
 newsletter `/newsletter/` · `/it/newsletter/`, privacy `/privacy/` · `/it/privacy/`, 404.
-Old preview paths (`/check/`, `/it/verifica/`) 301-redirect via the generated `_redirects`.
+Old and short paths (`/check/`, `/it/verifica/`, `/bg/`, `/remove-background/`, `/it/bg/`) 301-redirect via the generated `_redirects`.
 
 ## Renaming the brand
 
@@ -68,6 +79,10 @@ by `scripts/pages.ts` (good SEO: titles, meta, canonical, hreflang, Open Graph, 
 | --- | --- | --- |
 | [qrcode](https://github.com/soldair/node-qrcode) | MIT | QR matrix encoding |
 | [jsQR](https://github.com/cozmo/jsQR) | Apache-2.0 | QR decoding (fallback when the native `BarcodeDetector` is missing) |
+| [onnxruntime-web](https://github.com/microsoft/onnxruntime) 1.30.0 | MIT | runs the background-removal model (WASM files copied to `/engine/ort-1.30.0/`) |
+| [ormbg](https://huggingface.co/schirrmacher/ormbg) model by Marvin Schirrmacher, int8 | Apache-2.0 | background removal; pinned revision + sha256 in `src/bg/engine.json`, redistributed unchanged but split into < 25 MiB parts under `/engine/models/` |
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `licenses/`.
 
 Everything is bundled locally — no CDN. Dev-only: vite, typescript, vitest (MIT), puppeteer-core (Apache-2.0), pngjs (MIT).
 
@@ -76,11 +91,16 @@ Everything is bundled locally — no CDN. Dev-only: vite, typescript, vitest (MI
 ```bash
 npm install
 npm run dev            # local dev server
-npm run build          # type-check + production build to dist/
+npm run build          # type-check, prepare the engine (copy ORT, download + verify + split the model), build to dist/,
+                       # then check every file is < 25 MiB and < 20,000 files (Cloudflare Pages limits)
+npm run engine         # only the engine step (model cached in .cache/models/, output in public/engine/, both git-ignored)
 npm run build:preview  # same, with noindex (robots + meta) for preview deployments (production build is indexable)
 npm test               # unit tests: payload builders, generate→render→decode round-trips (matrix + SVG), classifier
 npm run test:e2e       # headless Chrome on dist/: every QR type → PNG & SVG decode back, logo, downloads,
-                       # newsletter signup (MailerLite mocked: success/errors/honeypot), trap checker on sample photos/screenshots (EN+IT), SEO/a11y/mobile/CSP checks
+                       # newsletter signup (MailerLite mocked: success/errors/honeypot), trap checker on sample photos/screenshots (EN+IT), background remover
+                       # (4 photos vs fp32 reference masks, modes, downloads, cache, single-thread, headers), SEO/a11y/mobile/CSP checks
+npm run test:webkit    # optional, WebKit (Safari engine) via Playwright: cut-out, Save to Photos, download, real clipboard
+                       # (needs `npm i --no-save playwright && npx playwright install --with-deps webkit`; prints SKIP otherwise)
 npm run fixtures       # regenerate sample images in tests/fixtures (Python + Pillow + numpy)
 ```
 
@@ -97,6 +117,9 @@ src/domains.ts     known dynamic-QR / shortener / discontinued redirect domains 
 src/classify.ts    decoded text → verdict (dynamic, shortener, discontinued, static, maybe-short, not-url)
 src/decode.ts      multi-scale jsQR decoding + BarcodeDetector
 src/generator.ts   generator UI      src/checker.ts   checker UI (file, drag&drop, paste, camera)
+src/bg/            background remover: engine.json (runtime + model manifest), pipeline.ts (pure image maths),
+                   worker.ts (download, cache, verify, inference), page.ts (UI)
+scripts/engine/    prepare.mjs (engine files) and check-dist.mjs (Pages size limits)
 src/newsletter.ts  newsletter signup → MailerLite embedded-form endpoint (loading, success, errors, honeypot)
 scripts/pages.ts   build-time HTML, sitemap, robots, manifest
 public/_headers    CSP & security headers (Cloudflare Pages format)
@@ -120,7 +143,7 @@ https://kitlibre.com/newsletter/.
 
 Deploying a new version (helpers in `scripts/cf-deploy/`; no credentials are stored in this repo):
 
-1. `npm run build` then `node scripts/cf-deploy/1-prepare.cjs kitlibre` → hashes `dist/` (blake3 of base64+extension,
+1. `npm run build` (or `npm run build:preview`) then `node scripts/cf-deploy/1-prepare.cjs kitlibre <branch>` → hashes `dist/` (blake3 of base64+extension,
    like wrangler) into `.deploy/assets.json` and writes `.deploy/create-deployment.js` (manifest + `_headers` + `_redirects`).
    `.deploy/` is git-ignored.
 2. `GET /accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/kitlibre/upload-token` → short-lived, project-scoped JWT saved to a
@@ -128,6 +151,10 @@ Deploying a new version (helpers in `scripts/cf-deploy/`; no credentials are sto
    `upsert-hashes`; then delete the file.
 3. Run `.deploy/create-deployment.js` with an authenticated Cloudflare API client (`POST …/pages/projects/kitlibre/deployments`).
 
-Simpler alternative: `CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… npx wrangler pages deploy dist --project-name kitlibre --branch main`
+`<branch>` is required. Any branch other than `main` is a **preview** deployment at `https://<branch>.kitlibre.pages.dev`
+and leaves kitlibre.com untouched (use `npm run build:preview` for noindex). `main` is production and the script refuses
+it unless you also pass `--production`. Uploads are batched by size (up to 40 MiB base64 per request) because model parts are 20 MiB.
+
+Simpler alternative: `CLOUDFLARE_API_TOKEN=… CLOUDFLARE_ACCOUNT_ID=… npx wrangler pages deploy dist --project-name kitlibre --branch <branch>`
 (set the variables in your shell or CI secrets, never in a committed file).
 `npm run test:live` smoke-tests https://kitlibre.com.

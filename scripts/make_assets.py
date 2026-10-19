@@ -74,6 +74,20 @@ def og(name, lines, sub, art=None):
         g = ImageFont.truetype(FONT, 48)
         d.text((922, 382), 'Aa', font=g, fill=TEAL, anchor='mm')
         d.text((1072, 382), '@', font=g, fill=TEAL, anchor='mm')
+    elif art == 'bg':
+        # before/after: photo-like half on the left, checkerboard (transparent) half on the right, same subject
+        x0, y0, x1, y1 = 830, 150, 1130, 470
+        d.rounded_rectangle([x0, y0, x1, y1], 24, fill='white', outline=(229, 231, 235), width=3)
+        tile = 20
+        for ty in range(y0 + 3, y1 - 3, tile):
+            for tx in range((x0 + x1) // 2, x1 - 3, tile):
+                if ((tx - x0) // tile + (ty - y0) // tile) % 2:
+                    d.rectangle([tx, ty, min(tx + tile, x1 - 4), min(ty + tile, y1 - 4)], fill=(209, 213, 219))
+        d.rectangle([x0 + 3, y0 + 3, (x0 + x1) // 2, y1 - 3], fill=(134, 185, 160))
+        d.ellipse([930, 205, 1030, 305], fill=TEAL)
+        d.rounded_rectangle([890, 315, 1070, 470], 60, fill=TEAL)
+        d.rectangle([892, 440, 1068, 467], fill=TEAL)
+        d.line([(x0 + x1) // 2, y0 + 3, (x0 + x1) // 2, y1 - 3], fill='white', width=6)
     img.save(ROOT / f'public/{name}.png', optimize=True)
 
 copy = {
@@ -81,17 +95,20 @@ copy = {
         'hub': (['Free tools.', 'No subscription.', 'No signup required.', 'Forever.'], 'Open source · Files stay on your device'),
         'qr': (['Free static QR codes', 'that never expire.'], 'No signup required · No subscription · In your browser'),
         'nl': ([newsletter, 'Weekly. Free.'], 'One subscription trap explained, and the free way out.'),
+        'bg': (['Remove image backgrounds', 'free. No signup.'], 'Transparent PNG · Full resolution · Nothing uploaded'),
     },
     'it': {
         'hub': (['Strumenti gratuiti.', 'Niente abbonamenti.', 'Nessuna registrazione richiesta.', 'Per sempre.'], 'Open source · I file restano sul tuo dispositivo'),
         'qr': (['QR code statici gratis', 'che non scadono mai.'], 'Registrazione non richiesta · Nessun abbonamento · Nel browser'),
         'nl': ([newsletter, 'Ogni settimana. Gratis.'], 'Una trappola degli abbonamenti spiegata, e come evitarla gratis.'),
+        'bg': (['Rimuovi lo sfondo', 'gratis. Senza registrazione.'], 'PNG trasparente · Risoluzione piena · Nulla viene caricato'),
     },
 }
 for lang, c in copy.items():
     og(f'og-hub-{lang}', *c['hub'], art='tools')
     og(f'og-qr-{lang}', *c['qr'], art='qr')
     og(f'og-newsletter-{lang}', *c['nl'], art='tools')
+    og(f'og-bg-{lang}', *c['bg'], art='bg')
 
 touch = Image.new('RGB', (180, 180), TEAL)
 touch.paste(mark(180).convert('RGB'), (0, 0))

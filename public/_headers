@@ -7,3 +7,25 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Background remover page: WebAssembly needs 'wasm-unsafe-eval', inference runs in a same-origin module worker,
+# and COEP (with the global COOP) makes the page cross-origin isolated so ONNX Runtime can use threads.
+# "! Content-Security-Policy" detaches the global CSP first: Pages combines headers of all matching rules.
+/remove-bg/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://assets.mailerlite.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://assets.mailerlite.com; frame-ancestors 'none'
+  Cross-Origin-Embedder-Policy: require-corp
+
+# Same for the Italian page.
+/it/rimuovi-sfondo/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://assets.mailerlite.com; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://assets.mailerlite.com; frame-ancestors 'none'
+  Cross-Origin-Embedder-Policy: require-corp
+
+# Worker bundle, ONNX Runtime (WASM) and model parts. A worker's CSP/COEP come from its own script response.
+/engine/*
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; img-src 'self' data: blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: public, max-age=31536000, immutable

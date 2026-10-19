@@ -12,9 +12,24 @@ const api = (p, body) => fetch('https://api.cloudflare.com/client/v4' + p, { met
   if (!miss.json?.success) return console.log('check-missing failed', miss.status, JSON.stringify(miss.json?.errors));
   const missing = new Set(miss.json.result);
   const todo = assets.filter((a) => missing.has(a.key));
-  for (let i = 0; i < todo.length; i += 10) {
-    const up = await api('/pages/assets/upload', todo.slice(i, i + 10));
-    if (!up.json?.success) return console.log('upload failed', up.status, JSON.stringify(up.json?.errors));
+  // Batches by size like wrangler (≤ 40 MiB of base64 and ≤ 1000 files per request); a model part of
+  // 20 MiB (≈ 27 MiB base64) goes alone.
+  const MAX = 40 * 1024 * 1024, batches = [];
+  let cur = [], size = 0;
+  for (const a of todo) {
+    if (cur.length && (size + a.value.length > MAX || cur.length >= 1000)) { batches.push(cur); cur = []; size = 0; }
+    cur.push(a); size += a.value.length;
+  }
+  if (cur.length) batches.push(cur);
+  for (const [i, batch] of batches.entries()) {
+    let up;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      up = await api('/pages/assets/upload', batch);
+      if (up.json?.success) break;
+      console.log(`batch ${i + 1}/${batches.length} attempt ${attempt} failed`, up.status, JSON.stringify(up.json?.errors));
+    }
+    if (!up.json?.success) return;
+    console.log(`batch ${i + 1}/${batches.length}: ${batch.length} files, ${(batch.reduce((s, a) => s + a.value.length, 0) / 1048576).toFixed(1)} MiB`);
   }
   const ups = await api('/pages/assets/upsert-hashes', { hashes });
   console.log('missing', missing.size, 'uploaded', todo.length, 'of', assets.length, 'upsert', ups.json?.success);

@@ -14,3 +14,5 @@ for (const a of document.querySelectorAll<HTMLAnchorElement>('[data-lang-link]')
 if (page === 'generator') import('./generator').then((m) => m.initGenerator(t));
 else if (page === 'checker') import('./checker').then((m) => m.initChecker(t, lang));
 else if (page === 'newsletter') import('./newsletter').then((m) => m.initNewsletter(t));
+else if (page === 'bg') import('./bg/page').then((m) => m.initBg(t));
+else if (page === 'bgAlt') import('./newsletter').then((m) => m.initNewsletter(t));

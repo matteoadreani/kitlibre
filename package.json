@@ -1,17 +1,19 @@
 {
   "name": "kitlibre",
   "version": "1.0.0",
-  "description": "Kitlibre: free tools. No subscription. No signup required. Forever. Static QR generator + QR trap checker, 100% client-side.",
+  "description": "Kitlibre: free tools. No subscription. No signup required. Forever. Background remover, static QR generator + QR trap checker, 100% client-side.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && node scripts/engine/prepare.mjs && vite build && node scripts/engine/check-dist.mjs",
     "build:preview": "KIT_NOINDEX=1 npm run build",
     "preview": "vite preview --port 4173",
     "test": "vitest run",
     "test:e2e": "node tests/e2e.mjs",
     "fixtures": "python3 tests/make_fixtures.py",
     "assets": "python3 scripts/make_assets.py",
-    "test:live": "node tests/live-smoke.mjs https://kitlibre.com"
+    "test:live": "node tests/live-smoke.mjs https://kitlibre.com",
+    "engine": "node scripts/engine/prepare.mjs",
+    "test:webkit": "node tests/webkit.mjs"
   },
   "keywords": [
     "qr-code",
@@ -19,13 +21,17 @@
     "static-qr",
     "privacy",
     "free-tools",
-    "open-source"
+    "open-source",
+    "background-remover",
+    "remove-background",
+    "onnx"
   ],
   "author": "Matteo Adreani",
   "license": "MIT",
   "type": "module",
   "dependencies": {
     "jsqr": "^1.4.0",
+    "onnxruntime-web": "1.30.0",
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
