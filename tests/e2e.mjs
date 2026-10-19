@@ -690,7 +690,7 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
     }));
     check(`alt[${lang}] cites the remove.bg FAQ and the 1 Dec 2026 date`, info.faq >= 1 && (lang === 'it' ? /1° dicembre 2026 alle 9:00 CET/ : /1 December 2026 at 9:00 CET/).test(info.text));
     check(`alt[${lang}] trademark + not-affiliated disclaimer`, lang === 'it' ? /marchio del suo titolare[\s\S]*non è affiliato/.test(info.text) : /trademark of its owner[\s\S]*not affiliated/.test(info.text));
-    check(`alt[${lang}] CTAs to the tool, comparison table, no images/logos`, info.toolLinks.length >= 2 && info.toolLinks.every((h) => h === tool) && info.rows === 6 && info.imgs === 0, JSON.stringify(info.toolLinks));
+    check(`alt[${lang}] CTAs to the tool, comparison table, no images/logos`, info.toolLinks.length >= 2 && info.toolLinks.every((h) => h === tool) && info.rows === 7 && info.imgs === 0, JSON.stringify(info.toolLinks));
     await setVal(ap, '#nl-email', 'reader@example.com');
     await ap.click('#nl-form button');
     await waitNlDone(ap);
@@ -704,6 +704,39 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
   check('header nav + footer link the background remover and the alternative page', nav.nav.includes('/remove-bg/') && nav.foot.includes('/remove-bg/') && nav.foot.includes('/remove-bg-alternative/'), JSON.stringify(nav));
   await lp.goto(BASE + '/remove-bg/', { waitUntil: 'networkidle0' });
   check('bg page links to the alternative page and the IT version', (await lp.$$eval('a[href="/remove-bg-alternative/"]', (l) => l.length)) >= 1 && (await lp.$eval('a[hreflang=it]', (a) => a.getAttribute('href'))) === '/it/rimuovi-sfondo/');
+  // SEO: titles/descriptions, shutdown FAQ in DOM + FAQPage, specs, structured data
+  for (const [path, lang, kind] of [['/remove-bg/', 'en', 'bg'], ['/it/rimuovi-sfondo/', 'it', 'bg'], ['/remove-bg-alternative/', 'en', 'alt'], ['/it/alternativa-remove-bg/', 'it', 'alt']]) {
+    await lp.goto(BASE + path, { waitUntil: 'domcontentloaded' });
+    const seo = await lp.evaluate(() => ({
+      title: document.title,
+      desc: document.querySelector('meta[name=description]').content,
+      h1: document.querySelector('h1').textContent,
+      faqQ: [...document.querySelectorAll('main details summary, main .faq h3, main dt')].map((e) => e.textContent.trim()),
+      text: document.querySelector('main').textContent,
+      ld: [...document.querySelectorAll('script[type="application/ld+json"]')].map((s) => JSON.parse(s.textContent)),
+      specs: document.querySelectorAll('#bg-specs li').length,
+    }));
+    const q = lang === 'it' ? 'remove.bg chiude?' : 'Is remove.bg shutting down?';
+    const faqLd = seo.ld.find((x) => x['@type'] === 'FAQPage');
+    const shut = faqLd && faqLd.mainEntity.find((e) => e.name === q);
+    check(`seo[${path}] title <= 65, description 70-160`, seo.title.length <= 65 && seo.desc.length >= 70 && seo.desc.length <= 160, `${seo.title.length}/${seo.desc.length}`);
+    check(`seo[${path}] shutdown FAQ in page and FAQPage, with date + source`, seo.text.includes(q) && !!shut && /2026/.test(shut.acceptedAnswer.text) && shut.acceptedAnswer.text.includes('remove.bg/faq'));
+    check(`seo[${path}] states full resolution, model size, commercial use, hair/fur limits`, (lang === 'it' ? [/risoluzione piena/i, /44 MB/, /uso commerciale/i, /capelli|peli/i] : [/full resolution/i, /44 MB/, /commercial use/i, /hair|fur/i]).every((r) => r.test(seo.text)));
+    check(`seo[${path}] not-affiliated disclaimer kept`, lang === 'it' ? /non è affiliato/.test(seo.text) : /not affiliated/.test(seo.text));
+    if (kind === 'bg') {
+      const app = seo.ld.find((x) => x['@type'] === 'WebApplication');
+      check(`seo[${path}] WebApplication free offer + HowTo + specs section`, !!app && app.offers.price === '0' && seo.ld.some((x) => x['@type'] === 'HowTo') && seo.specs === 4);
+    } else {
+      const wp = seo.ld.find((x) => x['@type'] === 'WebPage');
+      check(`seo[${path}] WebPage cites remove.bg FAQ and describes the free app`, !!wp && wp.citation === 'https://www.remove.bg/faq' && wp.about['@type'] === 'WebApplication' && wp.about.offers.price === '0');
+    }
+  }
+  // internal links from home and the QR pages
+  for (const [path, tool, alt] of [['/', '/remove-bg/', '/remove-bg-alternative/'], ['/qr/', '/remove-bg/', '/remove-bg-alternative/'], ['/qr/check/', '/remove-bg/', '/remove-bg-alternative/'], ['/it/', '/it/rimuovi-sfondo/', '/it/alternativa-remove-bg/'], ['/it/qr/', '/it/rimuovi-sfondo/', '/it/alternativa-remove-bg/']]) {
+    await lp.goto(BASE + path, { waitUntil: 'domcontentloaded' });
+    const links = await lp.evaluate(() => [...document.querySelectorAll('main a')].map((a) => a.getAttribute('href')));
+    check(`links[${path}] main content links the tool and the alternative page`, links.includes(tool) && links.includes(alt), JSON.stringify(links));
+  }
   await lp.close();
   console.log('bg timings (box, headless Chrome, WASM):\n  ' + timings.join('\n  '));
 }
