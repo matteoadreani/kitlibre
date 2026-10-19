@@ -142,7 +142,7 @@ ${links.length ? `<p class="card-links">${links.map(([href, label], i) => `<a cl
 <div class="wrap content">
 <section aria-labelledby="tools-h"><h2 id="tools-h" class="section-h">${h(t.toolsH)}</h2>
 <ul class="tool-grid">
-${card(t.bgCardT, t.bgCardP, [[ROUTES.bg[lang], t.openTool + ' →']])}
+${card(t.bgCardT, t.bgCardP, [[ROUTES.bg[lang], t.openTool + ' →'], [ROUTES.bgAlt[lang], t.navBgAlt]])}
 ${card(t.qrCardT, t.qrCardP, [[ROUTES.generator[lang], t.openTool + ' →']])}
 ${card(t.chkCardT, t.chkCardP, [[ROUTES.checker[lang], t.openTool + ' →']])}
 ${t.soonTools.map(([a, b]) => card(a, b, [], true)).join('\n')}
@@ -278,6 +278,8 @@ ${preview}
 <section class="prose"><h2>${h(t.whyH)}</h2><p>${h(t.whyP1)}</p><p>${h(t.whyP2)}</p>
 <p><a class="btn" href="${ROUTES.checker[lang]}">${h(t.navChecker)} →</a></p></section>
 ${cmp}
+<section class="card related" aria-labelledby="rel-h"><h2 id="rel-h">${h(t.relH)}</h2><p>${h(t.relP)}</p>
+<p class="cta"><a class="btn primary" href="${ROUTES.bg[lang]}">${h(t.relLink)} →</a> <a href="${ROUTES.bgAlt[lang]}">${h(t.navBgAlt)}</a></p></section>
 ${faqBlock(t.faqH, t.genFaq)}
 </div>`;
 }
@@ -309,6 +311,8 @@ function checkerBody(t: Dict, lang: Lang) {
 <section class="prose"><h2>${h(t.listH)}</h2><p>${h(t.listIntro)}</p>
 ${group('dynamic-qr', t.listDynamic)}${group('shortener', t.listShortener)}${group('discontinued', t.listDiscontinued)}
 </section>
+<section class="card related" aria-labelledby="rel-h"><h2 id="rel-h">${h(t.relH)}</h2><p>${h(t.relP)}</p>
+<p class="cta"><a class="btn primary" href="${ROUTES.bg[lang]}">${h(t.relLink)} →</a> <a href="${ROUTES.bgAlt[lang]}">${h(t.navBgAlt)}</a></p></section>
 ${faqBlock(t.faqH, t.chkFaq)}
 </div>`;
 }
@@ -368,6 +372,7 @@ ${nlForm(t, lang)}
 <section class="card rbg-note" aria-labelledby="rbg-h"><h2 id="rbg-h">${h(t.bgRbgH)}</h2>
 <p>${h(t.bgRbgP)} <strong data-deadline="${REMOVE_BG_DEADLINE}" hidden></strong></p>
 <p class="cta"><a class="btn" href="${ROUTES.bgAlt[lang]}">${h(t.bgRbgLink)} →</a> <a href="${REMOVE_BG_FAQ}" rel="noopener nofollow">${h(t.altSource)}</a></p></section>
+<section class="prose" id="bg-specs" aria-labelledby="specs-h"><h2 id="specs-h">${h(t.bgSpecsH)}</h2><ul>${t.bgSpecs.map((x) => `<li>${h(x)}</li>`).join('')}</ul></section>
 <section class="prose"><h2>${h(t.bgHowH)}</h2><ol>${t.bgHow.map((x) => `<li>${h(x)}</li>`).join('')}</ol></section>
 <section class="feat-alerts" id="feat-alerts" aria-labelledby="fa-h"><h2 id="fa-h">${h(t.faH)}</h2>
 <p>${h(t.faLead)}</p><ul class="fa-list">${t.faItems.map((x) => `<li>${h(x)}</li>`).join('')}</ul>
@@ -426,6 +431,16 @@ const appLd = (name: string, desc: string, url: string, lang: Lang) => ({
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
   publisher: { '@type': 'Organization', name: BRAND_NAME, url: SITE.url },
 });
+/** Background remover as a free web app (WebApplication is a SoftwareApplication subtype). */
+const bgAppLd = (t: Dict, lang: Lang) => ({
+  ...appLd(t.bgH1, t.bgDesc, abs(ROUTES.bg[lang]), lang),
+  applicationCategory: 'MultimediaApplication',
+  browserRequirements: 'Requires JavaScript and WebAssembly',
+  featureList: t.bgSpecs.map((x) => brandify(x)),
+  license: 'https://opensource.org/licenses/MIT',
+});
+/** Date the remove.bg FAQ facts were last checked (keep in sync with t.altChecked). */
+const ALT_CHECKED = '2026-10-19';
 const crumbs = (lang: Lang, name: string, url: string) => ({
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
@@ -490,9 +505,9 @@ export function generatePages(): GeneratedPage[] {
       html: layout({
         id: 'bg', lang, title: t.bgTitle, desc: t.bgDesc, body: bgBody(t, lang), og: 'og-bg',
         ld: [
-          { ...appLd(t.bgH1, t.bgDesc, abs(ROUTES.bg[lang]), lang), applicationCategory: 'MultimediaApplication', browserRequirements: 'Requires WebAssembly' },
+          bgAppLd(t, lang),
           faqLd(t.bgFaq),
-          { '@context': 'https://schema.org', '@type': 'HowTo', name: brandify(t.bgH1), inLanguage: lang, step: t.bgHow.map((x, i) => ({ '@type': 'HowToStep', position: i + 1, text: brandify(x) })) },
+          { '@context': 'https://schema.org', '@type': 'HowTo', name: brandify(t.bgHowH), inLanguage: lang, totalTime: 'PT1M', tool: [{ '@type': 'HowToTool', name: brandify(t.bgCardT) }], step: t.bgHow.map((x, i) => ({ '@type': 'HowToStep', position: i + 1, text: brandify(x) })) },
           trail([[BRAND_NAME, abs(ROUTES.hub[lang])], [t.bgCardT, abs(ROUTES.bg[lang])]]),
         ],
       }),
@@ -502,7 +517,7 @@ export function generatePages(): GeneratedPage[] {
       html: layout({
         id: 'bgAlt', lang, title: t.altTitle, desc: t.altDesc, body: bgAltBody(t, lang), og: 'og-bg',
         ld: [
-          { '@context': 'https://schema.org', '@type': 'WebPage', name: brandify(t.altH1), description: brandify(t.altDesc), url: abs(ROUTES.bgAlt[lang]), inLanguage: lang, publisher: { '@type': 'Organization', name: BRAND_NAME } },
+          { '@context': 'https://schema.org', '@type': 'WebPage', name: brandify(t.altH1), description: brandify(t.altDesc), url: abs(ROUTES.bgAlt[lang]), inLanguage: lang, publisher: { '@type': 'Organization', name: BRAND_NAME }, citation: REMOVE_BG_FAQ, dateModified: ALT_CHECKED, about: (({ '@context': _c, ...app }) => app)(bgAppLd(t, lang)) },
           faqLd(t.altFaq),
           trail([[BRAND_NAME, abs(ROUTES.hub[lang])], [t.bgCardT, abs(ROUTES.bg[lang])], [t.altH1, abs(ROUTES.bgAlt[lang])]]),
         ],
