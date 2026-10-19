@@ -36,10 +36,25 @@ export function initBg(t: Dict) {
   if (stText?.dataset.stDeadline && daysUntil(new Date(stText.dataset.stDeadline), new Date()) <= 0) stText.textContent = stText.dataset.after ?? stText.textContent;
   initNewsletter(t, 'nl', () => { stWrite('subscribed'); if (stBox && !stBox.querySelector('.nl-msg.ok')) stBox.hidden = true; });
   initNewsletter(t, 'st', () => stWrite('subscribed'));
-  const showStBox = () => { if (stBox && !stRead()) stBox.hidden = false; };
+  // While the box is visible the page's own newsletter section is hidden (no duplicate). It comes back when the box
+  // is closed or another photo is loaded; the box is offered once per page view. If the box was closed before or the
+  // visitor already subscribed, the box never shows and the section stays as it is.
+  const nlSection = $<HTMLElement>('newsletter');
+  let stOffered = false;
+  const showStBox = () => {
+    if (!stBox || stOffered || stRead()) return;
+    stOffered = true;
+    stBox.hidden = false;
+    if (nlSection) nlSection.hidden = true;
+  };
+  const retireStBox = () => {
+    if (!stBox || stBox.hidden) return;
+    stBox.hidden = true;
+    if (nlSection) nlSection.hidden = false;
+  };
   $<HTMLButtonElement>('st-close')?.addEventListener('click', () => {
     stWrite('dismissed');
-    stBox.hidden = true;
+    retireStBox();
     const primary = [...document.querySelectorAll<HTMLButtonElement>('#bg-result .dl .btn.primary')].find((b) => !b.hidden);
     primary?.focus();
   });
@@ -149,6 +164,7 @@ export function initBg(t: Dict) {
     if (f.size > MAX_FILE_BYTES) return setStatus('error', t.bgErrBig);
     busy = true;
     file.disabled = true;
+    retireStBox();
     const t0 = performance.now();
     if (!ready) ensureWorker();
     setStatus(ready ? 'working' : 'loading', ready ? t.bgStWorking : t.bgStStarting);
@@ -325,7 +341,7 @@ export function initBg(t: Dict) {
       if ((e as Error)?.name !== 'AbortError') { hook.lastShareError = String((e as Error)?.name || e); status.textContent = t.bgSaveFail; }
     });
   });
-  again.addEventListener('click', () => { result.hidden = true; current = null; setStatus('idle', ''); drop.focus(); });
+  again.addEventListener('click', () => { retireStBox(); result.hidden = true; current = null; setStatus('idle', ''); drop.focus(); });
 
   // ---- test hooks (read-only views of the current result)
   Object.assign(hook, {

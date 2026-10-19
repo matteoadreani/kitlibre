@@ -513,6 +513,7 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
     let s0 = await upload(sp, join(BGFIX, 'portrait-aldrin.jpg'));
     let st = await stState(sp);
     check('st[en] box shown after a successful cut-out, below the download buttons, not over the result', s0.status === 'done' && !st.hidden && st.belowDl && st.belowCanvas && !st.overflowX, JSON.stringify(st));
+    check('st[en] page newsletter section hidden while the box is visible (no duplicate)', (await sp.$eval('#newsletter', (n) => n.hidden)));
     check('st[en] copy + 44px close button', st.h === 'SaaS Trap of the Week' && st.text.startsWith('remove.bg shuts down on 1 December. Every week, SaaS Trap tells you') && st.close[0] >= 44 && st.close[1] >= 44, JSON.stringify(st));
     check('st[en] box form posts to the existing SaaS Trap MailerLite form', (await sp.$eval('#st-form', (f) => f.action)) === (await sp.$eval('#nl-form', (f) => f.action)) && (await sp.$eval('#st-form', (f) => f.action)).includes('/forms/201738245033166731/'));
     // tool fully usable without the email: download works with the box open and untouched
@@ -528,9 +529,25 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
     await sp.click('#st-close');
     st = await stState(sp);
     check('st[en] X closes the box and remembers it (localStorage)', st.hidden && st.stored === 'dismissed' && (await sp.evaluate(() => document.activeElement?.id)) === 'bg-dl-png', JSON.stringify(st));
+    check('st[en] after X the page newsletter section is back', !(await sp.$eval('#newsletter', (n) => n.hidden)));
     await sp.reload({ waitUntil: 'networkidle0' });
     s0 = await upload(sp, join(BGFIX, 'dog-labrador.jpg'));
-    check('st[en] closed box stays closed after reload + new cut-out', s0.status === 'done' && (await stState(sp)).hidden);
+    check('st[en] closed box stays closed after reload + new cut-out, newsletter section as today', s0.status === 'done' && (await stState(sp)).hidden && !(await sp.$eval('#newsletter', (n) => n.hidden)));
+    // another photo → box goes away, section comes back, box not offered again in this page view
+    await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    await sp.reload({ waitUntil: 'networkidle0' });
+    await upload(sp, join(BGFIX, 'portrait-aldrin.jpg'));
+    const shownFirst = !(await stState(sp)).hidden && (await sp.$eval('#newsletter', (n) => n.hidden));
+    await (await sp.$('#bg-file')).uploadFile(join(BGFIX, 'cat-grass.jpg'));
+    await sp.waitForFunction(() => window.__kitBg.status === 'working' || window.__kitBg.status === 'done');
+    const duringNext = { box: (await stState(sp)).hidden, nl: !(await sp.$eval('#newsletter', (n) => n.hidden)) };
+    await waitBg(sp);
+    check('st[en] another photo: box hidden, newsletter section back, box not offered twice', shownFirst && duringNext.box && duringNext.nl && (await stState(sp)).hidden && !(await sp.$eval('#newsletter', (n) => n.hidden)), JSON.stringify({ shownFirst, duringNext }));
+    // "Remove another" also brings the section back
+    await sp.reload({ waitUntil: 'networkidle0' });
+    await upload(sp, join(BGFIX, 'portrait-aldrin.jpg'));
+    await sp.click('#bg-again');
+    check('st[en] "Remove another" brings the newsletter section back', !(await sp.$eval('#newsletter', (n) => n.hidden)));
     // subscribe from the box (MailerLite mocked) → success message, remembered
     await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
     await sp.reload({ waitUntil: 'networkidle0' });
@@ -542,7 +559,7 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
     check('st[en] signup from the box (mocked): double opt-in message, same body as the other forms, remembered', (await sp.$eval('#st-msg', (m) => m.textContent)) === 'Check your inbox to confirm.' && mlPosts.at(-1)?.url.includes('/forms/201738245033166731/') && mlPosts.at(-1)?.body === 'fields%5Bemail%5D=reader%40example.com&ml-submit=1&anticsrf=true' && st.stored === 'subscribed', JSON.stringify(mlPosts.at(-1)));
     await sp.reload({ waitUntil: 'networkidle0' });
     await upload(sp, join(BGFIX, 'cat-grass.jpg'));
-    check('st[en] after subscribing the box is not shown again', (await stState(sp)).hidden);
+    check('st[en] after subscribing the box is not shown again, newsletter section as today', (await stState(sp)).hidden && !(await sp.$eval('#newsletter', (n) => n.hidden)));
     await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
     await sp.close();
     // Italian + after the deadline
