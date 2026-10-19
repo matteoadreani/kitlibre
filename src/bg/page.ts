@@ -37,6 +37,8 @@ export function initBg(t: Dict) {
   const dlPng = $<HTMLButtonElement>('bg-dl-png');
   const dlJpg = $<HTMLButtonElement>('bg-dl-jpg');
   const copyBtn = $<HTMLButtonElement>('bg-copy');
+  const shareBtn = $<HTMLButtonElement>('bg-share');
+  const dlFile = $<HTMLButtonElement>('bg-dl-file');
   const again = $<HTMLButtonElement>('bg-again');
   const meta = $<HTMLParagraphElement>('bg-meta');
   if (!drop || !file) return;
@@ -195,6 +197,55 @@ export function initBg(t: Dict) {
     ctx2d(canvas).putImageData(showOriginal ? current.src : composed()!, 0, 0);
     dlJpg.disabled = mode === 'transparent';
     dlJpg.title = mode === 'transparent' ? t.bgJpgNeedsBg : '';
+    prepareShare();
+  }
+
+  // ---- "Save to Photos" on iOS/iPadOS: Safari puts <a download> files in Files/Downloads, while the
+  // share sheet offers "Save Image" straight into Photos. There the share button is primary and the
+  // classic download becomes a secondary "Download file"; desktop and Android keep Download PNG/JPG.
+  // navigator.share() must run synchronously in the click to keep the user activation, so the File
+  // (PNG when transparent, JPG on a solid background) is encoded in advance after every render; if the
+  // click comes first, it is encoded synchronously (toDataURL) inside the click instead.
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const canShareFiles = (() => {
+    try {
+      return isIOS && typeof navigator.share === 'function' && typeof navigator.canShare === 'function'
+        && navigator.canShare({ files: [new File([new Uint8Array([137, 80, 78, 71])], 'x.png', { type: 'image/png' })] });
+    } catch { return false; }
+  })();
+  if (canShareFiles && shareBtn && dlFile) {
+    shareBtn.hidden = false;
+    dlFile.hidden = false;
+    dlPng.hidden = true;
+    dlJpg.hidden = true;
+  }
+  hook.shareMode = canShareFiles;
+  let renderVer = 0;
+  let shareFile: { ver: number; file: File } | null = null;
+  let blobCache: { ver: number; blob: Promise<Blob> } | null = null;
+  function pngBlob(): Promise<Blob> {
+    if (!blobCache || blobCache.ver !== renderVer) blobCache = { ver: renderVer, blob: exportBlob('image/png') };
+    return blobCache.blob;
+  }
+  const shareExt = () => (mode === 'transparent' ? 'png' : 'jpg') as 'png' | 'jpg';
+  const mimeOf = (ext: 'png' | 'jpg') => (ext === 'png' ? 'image/png' : 'image/jpeg') as 'image/png' | 'image/jpeg';
+  function prepareShare() {
+    const ver = ++renderVer;
+    shareFile = null;
+    if (!canShareFiles || !current) return;
+    const ext = shareExt(), name = outputName(current.name, ext);
+    exportBlob(mimeOf(ext)).then((b) => { if (ver === renderVer) shareFile = { ver, file: new File([b], name, { type: mimeOf(ext) }) }; }, () => {});
+  }
+  function shareFileNow(): File {
+    if (shareFile && shareFile.ver === renderVer) return shareFile.file;
+    const ext = shareExt(), type = mimeOf(ext);
+    const data = composed()!;
+    const c = canvasOf(data.width, data.height);
+    ctx2d(c).putImageData(data, 0, 0);
+    const bin = atob(c.toDataURL(type, 0.92).split(',')[1]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new File([bytes], outputName(current!.name, ext), { type });
   }
 
   function exportBlob(type: 'image/png' | 'image/jpeg'): Promise<Blob> {
@@ -235,13 +286,26 @@ export function initBg(t: Dict) {
   compare.addEventListener('click', () => { showOriginal = !showOriginal; compare.setAttribute('aria-pressed', String(showOriginal)); render(); });
   dlPng.addEventListener('click', () => download('png'));
   dlJpg.addEventListener('click', () => download('jpg'));
+  dlFile?.addEventListener('click', () => download(shareExt()));
   if (typeof ClipboardItem === 'undefined' || !navigator.clipboard?.write) copyBtn.hidden = true;
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': exportBlob('image/png') })]);
-      copyBtn.textContent = t.bgCopied;
-      setTimeout(() => (copyBtn.textContent = t.bgCopy), 2000);
-    } catch { copyBtn.textContent = t.bgCopyFail; }
+  // Safari only allows clipboard.write() synchronously inside the click, with the data as a promise.
+  copyBtn.addEventListener('click', () => {
+    if (!current) return;
+    const ok = () => { copyBtn.textContent = t.bgCopied; setTimeout(() => (copyBtn.textContent = t.bgCopy), 2000); };
+    const fail = () => { copyBtn.textContent = t.bgCopyFail; };
+    let write: Promise<void>;
+    try { write = navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob() })]); } catch (e) { write = Promise.reject(e); }
+    // older Chromium without promise values in ClipboardItem: retry with the resolved blob
+    write.then(ok, () => pngBlob().then((b) => navigator.clipboard.write([new ClipboardItem({ 'image/png': b })])).then(ok, fail));
+  });
+  shareBtn?.addEventListener('click', () => {
+    if (!current || !canShareFiles) return;
+    let file: File;
+    try { file = shareFileNow(); } catch { status.textContent = t.bgSaveFail; return; }
+    hook.lastShare = { name: file.name, type: file.type, size: file.size, prepared: shareFile?.file === file };
+    navigator.share({ files: [file] }).catch((e: unknown) => {
+      if ((e as Error)?.name !== 'AbortError') { hook.lastShareError = String((e as Error)?.name || e); status.textContent = t.bgSaveFail; }
+    });
   });
   again.addEventListener('click', () => { result.hidden = true; current = null; setStatus('idle', ''); drop.focus(); });
 

@@ -91,6 +91,23 @@ async function mockMailerLite(page) {
   });
   return state;
 }
+// Same mock, but only MailerLite requests are paused (CDP Fetch with a URL pattern). Used on the background
+// remover pages: page-wide request interception can stall the module worker and its pthread workers.
+async function mockMailerLiteScoped(page) {
+  const state = { mode: 'ok' };
+  const cdp = await page.createCDPSession();
+  await cdp.send('Fetch.enable', { patterns: [{ urlPattern: ML + '*' }] });
+  cdp.on('Fetch.requestPaused', async ({ requestId, request }) => {
+    const cors = [{ name: 'Access-Control-Allow-Origin', value: '*' }];
+    if (request.method === 'OPTIONS') return cdp.send('Fetch.fulfillRequest', { requestId, responseCode: 204, responseHeaders: [...cors, { name: 'Access-Control-Allow-Methods', value: 'POST' }] });
+    mlPosts.push({ url: request.url, method: request.method, body: request.postData || '', type: request.headers['Content-Type'] || request.headers['content-type'] || '', cookie: request.headers['Cookie'] || '' });
+    if (state.mode === 'down') return cdp.send('Fetch.failRequest', { requestId, errorReason: 'Failed' });
+    const body = state.mode === 'ok' ? { success: true } : { success: false, errors: { fields: { email: ['The email must be a valid email address.'] } } };
+    await new Promise((r) => setTimeout(r, 150));
+    await cdp.send('Fetch.fulfillRequest', { requestId, responseCode: state.mode === 'ok' ? 200 : 422, responseHeaders: [...cors, { name: 'Content-Type', value: 'application/json' }], body: Buffer.from(JSON.stringify(body)).toString('base64') });
+  });
+  return state;
+}
 const nlMsg = (page) => page.$eval('#nl-msg', (m) => ({ text: m.textContent, cls: m.className }));
 const waitNlDone = (page) => page.waitForFunction(() => document.querySelector('#nl-form button').getAttribute('aria-busy') !== 'true' && document.querySelector('#nl-msg').textContent !== '', { timeout: 5000 });
 
@@ -392,7 +409,7 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
   const timings = [];
 
   const bp = await newPage();
-  await mockMailerLite(bp);
+  await mockMailerLiteScoped(bp);
   await bp.goto(BASE + '/remove-bg/', { waitUntil: 'networkidle0' });
   check('bg[en] page is crossOriginIsolated (threads possible)', await bp.evaluate(() => crossOriginIsolated));
   check('bg[en] remove.bg countdown rendered', /\d+ days left\.|1 day left\.|closed/.test(await bp.$eval('[data-deadline]', (e) => (e.hidden ? '' : e.textContent))));
@@ -425,6 +442,7 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
   check('bg[en] result keeps the original resolution', JSON.stringify((await bgState(bp)).size) === JSON.stringify({ w: 1024, h: 769 }));
   check('bg[en] status says done on device', /^Done in \d+\.\d s\./.test((await bgState(bp)).text));
   // background modes, JPG, compare
+  check('bg[en] desktop: no share button, Download PNG/JPG visible', (await bp.evaluate(() => window.__kitBg.shareMode)) === false && (await bp.$eval('#bg-share', (e) => e.hidden)) && (await bp.$eval('#bg-dl-file', (e) => e.hidden)) && !(await bp.$eval('#bg-dl-png', (e) => e.hidden)));
   check('bg[en] JPG disabled while transparent', await bp.$eval('#bg-dl-jpg', (b) => b.disabled));
   const cornerOf = (type) => bp.evaluate(async (t) => { const u = await window.__kitBg.exportDataUrl(t); const i = new Image(); i.src = u; await i.decode(); const c = document.createElement('canvas'); c.width = i.width; c.height = i.height; const x = c.getContext('2d'); x.drawImage(i, 0, 0); return { type: u.slice(5, u.indexOf(';')), px: Array.from(x.getImageData(5, i.height - 5, 1, 1).data) }; }, type);
   let c = await cornerOf('image/png');
@@ -466,7 +484,7 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
 
   // Italian page
   const ip = await newPage();
-  const iml = await mockMailerLite(ip);
+  const iml = await mockMailerLiteScoped(ip);
   await ip.goto(BASE + '/it/rimuovi-sfondo/', { waitUntil: 'networkidle0' });
   const ist = await upload(ip, join(BGFIX, 'portrait-aldrin.jpg'));
   check('bg[it] works, Italian status', ist.status === 'done' && /^Fatto in \d+\.\d s\./.test(ist.text), JSON.stringify(ist));
@@ -478,6 +496,74 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
   check('bg[it] newsletter signup works', (await nlMsg(ip)).text === 'Controlla la posta per confermare.');
   await ip.close();
 
+  // iOS share sheet ("Save to Photos" primary) and Copy, with navigator.share / canShare / clipboard mocked
+  const IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
+  const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36';
+  const mockShare = () => {
+    window.__shares = []; window.__copies = []; window.__shareReject = null;
+    navigator.canShare = (d) => !!d?.files?.length && d.files.every((f) => f instanceof File);
+    navigator.share = (d) => {
+      window.__shares.push({ active: navigator.userActivation.isActive, files: d.files.map((f) => ({ name: f.name, type: f.type, size: f.size })) });
+      return window.__shareReject ? Promise.reject(new DOMException('x', window.__shareReject)) : Promise.resolve();
+    };
+    window.ClipboardItem = class { constructor(items) { this.items = items; } };
+    Object.defineProperty(navigator, 'clipboard', { value: { write: (list) => {
+      const v = list[0].items['image/png'];
+      const rec = { active: navigator.userActivation.isActive, promise: typeof v?.then === 'function' };
+      window.__copies.push(rec);
+      return Promise.resolve(v).then((b) => { rec.type = b.type; rec.size = b.size; });
+    } }, configurable: true });
+  };
+  const shareMobile = async (ua, path) => {
+    const p = await newPage();
+    await p.setUserAgent(ua);
+    await p.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    await p.evaluateOnNewDocument(mockShare);
+    await p.goto(BASE + path, { waitUntil: 'networkidle0' });
+    return p;
+  };
+  const vis = (p, sel) => p.$eval(sel, (e) => !e.hidden && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0);
+  for (const [lang, path, save, dlf] of [['it', '/it/rimuovi-sfondo/', 'Salva in Foto', 'Scarica file'], ['en', '/remove-bg/', 'Save to Photos', 'Download file']]) {
+    const sp = await shareMobile(IOS_UA, path);
+    const sst = await upload(sp, join(BGFIX, 'dog-labrador.jpg'));
+    check(`ios[${lang}] cut-out done`, sst.status === 'done', JSON.stringify(sst));
+    const ui = await sp.evaluate(() => ({ share: document.querySelector('#bg-share').textContent, primary: document.querySelector('#bg-share').classList.contains('primary'), file: document.querySelector('#bg-dl-file').textContent, mode: window.__kitBg.shareMode }));
+    check(`ios[${lang}] "${save}" is the primary button, "${dlf}" secondary, PNG/JPG buttons hidden`, ui.mode === true && ui.share === save && ui.primary && ui.file === dlf && (await vis(sp, '#bg-share')) && (await vis(sp, '#bg-dl-file')) && !(await vis(sp, '#bg-dl-png')) && !(await vis(sp, '#bg-dl-jpg')), JSON.stringify(ui));
+    await new Promise((r) => setTimeout(r, 400)); // let the File be prepared after render
+    await sp.click('#bg-share');
+    let sh = await sp.evaluate(() => ({ shares: window.__shares, last: window.__kitBg.lastShare }));
+    check(`ios[${lang}] share sheet opened synchronously in the click with a prepared PNG -nobg File`, sh.shares.length === 1 && sh.shares[0].active === true && sh.shares[0].files.length === 1 && sh.shares[0].files[0].name === 'dog-labrador-nobg.png' && sh.shares[0].files[0].type === 'image/png' && sh.shares[0].files[0].size > 10000 && sh.last.prepared === true, JSON.stringify(sh));
+    if (lang === 'it') {
+      // solid background → JPG; click right after the change (File not ready yet → synchronous encode, still in the click)
+      await sp.click('input[name=bgmode][value=white]');
+      await sp.click('#bg-share');
+      sh = await sp.evaluate(() => ({ shares: window.__shares, last: window.__kitBg.lastShare }));
+      check('ios[it] solid background → shares a JPG -nobg File, still inside the click', sh.shares.length === 2 && sh.shares[1].active === true && sh.shares[1].files[0].name === 'dog-labrador-nobg.jpg' && sh.shares[1].files[0].type === 'image/jpeg' && sh.shares[1].files[0].size > 10000, JSON.stringify(sh.shares[1]));
+      await sp.click('#bg-dl-file');
+      await sp.waitForFunction(() => window.__kitBg.lastDownload?.name === 'dog-labrador-nobg.jpg', { timeout: 5000 }).catch(() => {});
+      check('ios[it] "Scarica file" still downloads via <a download> (JPG on solid background)', (await sp.evaluate(() => window.__kitBg.lastDownload?.name)) === 'dog-labrador-nobg.jpg');
+      await sp.evaluate(() => { window.__shareReject = 'AbortError'; });
+      const before = await sp.$eval('#bg-status', (e) => e.textContent);
+      await sp.click('#bg-share');
+      await new Promise((r) => setTimeout(r, 200));
+      check('ios[it] cancelling the share sheet shows no error', (await sp.$eval('#bg-status', (e) => e.textContent)) === before);
+      await sp.evaluate(() => { window.__shareReject = 'NotAllowedError'; });
+      await sp.click('#bg-share');
+      await new Promise((r) => setTimeout(r, 200));
+      check('ios[it] share failure → hint to use "Scarica file"', (await sp.$eval('#bg-status', (e) => e.textContent)) === 'La condivisione non ha funzionato: usa Scarica file.');
+    }
+    // Copy: clipboard.write() called synchronously in the click, with a Promise<Blob> (what Safari requires)
+    await sp.click('#bg-copy');
+    await sp.waitForFunction(() => window.__copies.length && window.__copies[0].type, { timeout: 5000 }).catch(() => {});
+    const cp = await sp.evaluate(() => ({ c: window.__copies[0], label: document.querySelector('#bg-copy').textContent }));
+    check(`ios[${lang}] Copy: clipboard.write in the click with a promise → image/png`, cp.c?.active === true && cp.c.promise === true && cp.c.type === 'image/png' && cp.c.size > 10000 && cp.label === (lang === 'it' ? 'Copiata' : 'Copied'), JSON.stringify(cp));
+    await sp.close();
+  }
+  // Android (share API available too) and desktop keep Download PNG as the primary button
+  const ap0 = await shareMobile(ANDROID_UA, '/remove-bg/');
+  const ast = await upload(ap0, join(BGFIX, 'cat-grass.jpg'));
+  check('android: Download PNG stays primary, no share button', ast.status === 'done' && (await ap0.evaluate(() => window.__kitBg.shareMode)) === false && (await vis(ap0, '#bg-dl-png')) && !(await vis(ap0, '#bg-share')) && !(await vis(ap0, '#bg-dl-file')));
+  await ap0.close();
   // remove.bg alternative pages
   for (const [path, lang, tool] of [['/remove-bg-alternative/', 'en', '/remove-bg/'], ['/it/alternativa-remove-bg/', 'it', '/it/rimuovi-sfondo/']]) {
     const ap = await newPage();

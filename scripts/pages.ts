@@ -343,7 +343,7 @@ function bgBody(t: Dict, lang: Lang) {
 <div class="bg-stage"><canvas id="bg-canvas" role="img" aria-label="${h(t.bgResultH)}"></canvas></div>
 <fieldset class="bg-modes"><legend>${h(t.bgBgLegend)}</legend><div class="segs">${modes}
 <label class="bg-color-l" for="bg-color"><span class="sr-only">${h(t.bgColorPick)}</span></label><input id="bg-color" type="color" value="#0f766e"></div></fieldset>
-<div class="dl"><button type="button" class="btn primary" id="bg-dl-png">${h(t.bgDlPng)}</button><button type="button" class="btn" id="bg-dl-jpg" disabled>${h(t.bgDlJpg)}</button></div>
+<div class="dl"><button type="button" class="btn primary" id="bg-share" title="${h(t.bgSaveHint)}" hidden>${h(t.bgSave)}</button><button type="button" class="btn ghost" id="bg-dl-file" hidden>${h(t.bgDlFile)}</button><button type="button" class="btn primary" id="bg-dl-png">${h(t.bgDlPng)}</button><button type="button" class="btn" id="bg-dl-jpg" disabled>${h(t.bgDlJpg)}</button></div>
 <div class="row bg-more"><button type="button" class="btn ghost" id="bg-copy">${h(t.bgCopy)}</button><button type="button" class="btn ghost" id="bg-again">${h(t.bgAgain)}</button></div>
 <p class="hint" id="bg-meta"></p>
 </section>

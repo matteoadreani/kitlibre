@@ -12,7 +12,8 @@
     "fixtures": "python3 tests/make_fixtures.py",
     "assets": "python3 scripts/make_assets.py",
     "test:live": "node tests/live-smoke.mjs https://kitlibre.com",
-    "engine": "node scripts/engine/prepare.mjs"
+    "engine": "node scripts/engine/prepare.mjs",
+    "test:webkit": "node tests/webkit.mjs"
   },
   "keywords": [
     "qr-code",

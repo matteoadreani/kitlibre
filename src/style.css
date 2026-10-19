@@ -258,3 +258,5 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .alt-try h2 { font-size: 1.2rem; margin: 0 0 6px; }
 .content .newsletter { max-width: 760px; }
 .disclaimer { max-width: 760px; margin-top: 18px; }
+/* iOS share mode: "Save to Photos" (primary) + "Download file" (secondary) */
+.btn[hidden] { display: none; }

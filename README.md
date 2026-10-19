@@ -10,7 +10,8 @@ No account, no trial that expires, no paywall in front of the basics, and your f
 - **Background remover** (`/remove-bg/` · `/it/rimuovi-sfondo/`): drop, pick, paste or photograph an image; an AI model
   ([ormbg](https://huggingface.co/schirrmacher/ormbg), Apache-2.0, int8) runs **in the browser** with
   [ONNX Runtime Web](https://onnxruntime.ai/) (WASM, multi-threaded when cross-origin isolated). Transparent PNG, or a
-  white/black/custom background as PNG or JPG; copy to clipboard; compare with the original. The 44 MB model is downloaded
+  white/black/custom background as PNG or JPG; on iPhone/iPad a primary **Save to Photos** button opens the share sheet
+  ("Save Image"), with the classic download kept as "Download file"; copy to clipboard; compare with the original. The 44 MB model is downloaded
   once and kept in the browser cache. Companion page: **free remove.bg alternative** (`/remove-bg-alternative/` ·
   `/it/alternativa-remove-bg/`), a factual comparison (remove.bg closes as a standalone site on 1 Dec 2026, per its FAQ).
 - **Static QR generator** (`/qr/` · `/it/qr/`): URL (with optional UTM builder), text, Wi-Fi, contact (vCard 3.0),
@@ -98,6 +99,8 @@ npm test               # unit tests: payload builders, generate→render→decod
 npm run test:e2e       # headless Chrome on dist/: every QR type → PNG & SVG decode back, logo, downloads,
                        # newsletter signup (MailerLite mocked: success/errors/honeypot), trap checker on sample photos/screenshots (EN+IT), background remover
                        # (4 photos vs fp32 reference masks, modes, downloads, cache, single-thread, headers), SEO/a11y/mobile/CSP checks
+npm run test:webkit    # optional, WebKit (Safari engine) via Playwright: cut-out, Save to Photos, download, real clipboard
+                       # (needs `npm i --no-save playwright && npx playwright install --with-deps webkit`; prints SKIP otherwise)
 npm run fixtures       # regenerate sample images in tests/fixtures (Python + Pillow + numpy)
 ```
 
