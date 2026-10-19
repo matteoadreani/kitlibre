@@ -23,9 +23,42 @@ export function initCountdown(t: Dict, now = new Date()) {
   }
 }
 
+// Optional SaaS Trap box shown after a successful cut-out. Never blocks anything; closing it (or subscribing,
+// here or in the newsletter section) is remembered on this device only.
+export const ST_KEY = 'kitlibre:saastrap-box';
+const stRead = () => { try { return localStorage.getItem(ST_KEY); } catch { return null; } };
+const stWrite = (v: 'dismissed' | 'subscribed') => { try { localStorage.setItem(ST_KEY, v); } catch { /* private mode: just hide */ } };
+
 export function initBg(t: Dict) {
-  initNewsletter(t);
   initCountdown(t);
+  const stBox = $<HTMLElement>('st-box');
+  const stText = $<HTMLElement>('st-text');
+  if (stText?.dataset.stDeadline && daysUntil(new Date(stText.dataset.stDeadline), new Date()) <= 0) stText.textContent = stText.dataset.after ?? stText.textContent;
+  initNewsletter(t, 'nl', () => { stWrite('subscribed'); if (stBox && !stBox.querySelector('.nl-msg.ok')) stBox.hidden = true; });
+  initNewsletter(t, 'st', () => stWrite('subscribed'));
+  initNewsletter(t, 'fa'); // feature alerts (separate list)
+  // While the box is visible the page's own newsletter section is hidden (no duplicate). It comes back when the box
+  // is closed or another photo is loaded; the box is offered once per page view. If the box was closed before or the
+  // visitor already subscribed, the box never shows and the section stays as it is.
+  const nlSection = $<HTMLElement>('newsletter');
+  let stOffered = false;
+  const showStBox = () => {
+    if (!stBox || stOffered || stRead()) return;
+    stOffered = true;
+    stBox.hidden = false;
+    if (nlSection) nlSection.hidden = true;
+  };
+  const retireStBox = () => {
+    if (!stBox || stBox.hidden) return;
+    stBox.hidden = true;
+    if (nlSection) nlSection.hidden = false;
+  };
+  $<HTMLButtonElement>('st-close')?.addEventListener('click', () => {
+    stWrite('dismissed');
+    retireStBox();
+    const primary = [...document.querySelectorAll<HTMLButtonElement>('#bg-result .dl .btn.primary')].find((b) => !b.hidden);
+    primary?.focus();
+  });
   const drop = $<HTMLDivElement>('bg-drop');
   const file = $<HTMLInputElement>('bg-file');
   const status = $<HTMLParagraphElement>('bg-status');
@@ -132,6 +165,7 @@ export function initBg(t: Dict) {
     if (f.size > MAX_FILE_BYTES) return setStatus('error', t.bgErrBig);
     busy = true;
     file.disabled = true;
+    retireStBox();
     const t0 = performance.now();
     if (!ready) ensureWorker();
     setStatus(ready ? 'working' : 'loading', ready ? t.bgStWorking : t.bgStStarting);
@@ -170,6 +204,7 @@ export function initBg(t: Dict) {
       const secs = ((performance.now() - t0) / 1000).toFixed(1);
       Object.assign(hook, { ms, totalMs: Math.round(performance.now() - t0), size: { w, h }, scaled });
       setStatus('done', fmt(t.bgStDone, { s: secs }) + (scaled ? ' ' + fmt(t.bgStScaled, { w, h }) : ''));
+      showStBox();
       meta.textContent = fmt(engineInfo.threads > 1 ? t.bgMetaN : t.bgMeta1, { n: engineInfo.threads, ms: (ms / 1000).toFixed(1) });
       result.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
@@ -307,7 +342,7 @@ export function initBg(t: Dict) {
       if ((e as Error)?.name !== 'AbortError') { hook.lastShareError = String((e as Error)?.name || e); status.textContent = t.bgSaveFail; }
     });
   });
-  again.addEventListener('click', () => { result.hidden = true; current = null; setStatus('idle', ''); drop.focus(); });
+  again.addEventListener('click', () => { retireStBox(); result.hidden = true; current = null; setStatus('idle', ''); drop.focus(); });
 
   // ---- test hooks (read-only views of the current result)
   Object.assign(hook, {

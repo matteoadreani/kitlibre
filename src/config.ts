@@ -19,6 +19,8 @@ export const SITE = {
    * Not a secret: it is the same action URL MailerLite puts in its HTML embed code. No API key is ever used on the site.
    */
   newsletterFormAction: 'https://assets.mailerlite.com/jsonp/2342555/forms/201738245033166731/subscribe',
+  /** "Kitlibre feature alerts" (MailerLite group 201749726554489893, embedded form, double opt-in): background remover updates */
+  featureFormAction: 'https://assets.mailerlite.com/jsonp/2342555/forms/201749732087825581/subscribe',
   /** Only for preview builds (KIT_NOINDEX=1): <meta name="robots" content="noindex"> + robots.txt disallow. */
   noindex: typeof process !== 'undefined' ? process.env?.KIT_NOINDEX === '1' : false,
 } as const;

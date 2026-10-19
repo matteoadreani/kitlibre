@@ -275,6 +275,8 @@ for (const path of ['/', '/remove-bg/', '/remove-bg-alternative/', '/qr/', '/qr/
         canonical: q('link[rel=canonical]')?.href, og: q('meta[property="og:image"]')?.content, hreflang: document.querySelectorAll('link[rel=alternate][hreflang]').length,
         h1: document.querySelectorAll('h1').length, ogPath: new URL(q('meta[property="og:image"]').content).pathname, canonPath: new URL(q('link[rel=canonical]').href).pathname,
         canonHost: new URL(q('link[rel=canonical]').href).host, robots: q('meta[name=robots]')?.content, brandInTitle: document.title.includes('Kitlibre'), unlabeled, ldOk, ldTypes, imgsNoAlt: [...document.querySelectorAll('img:not([alt])')].length,
+        tw: Object.fromEntries(['card', 'site', 'title', 'description', 'image', 'image:alt'].map((k) => [k, q(`meta[name="twitter:${k}"]`)?.content ?? null])),
+        ogTitle: q('meta[property="og:title"]')?.content, ogDesc: q('meta[property="og:description"]')?.content, ogAlt: q('meta[property="og:image:alt"]')?.content,
       };
     });
     const isIt = path.startsWith('/it/');
@@ -286,6 +288,7 @@ for (const path of ['/', '/remove-bg/', '/remove-bg-alternative/', '/qr/', '/qr/
     check(`${path} robots index,follow (production build)`, info.robots === 'index,follow', info.robots);
     check(`${path} brand in title`, info.brandInTitle, info.title);
     check(`${path} OG image exists (${info.ogPath})`, existsSync(join(DIST, info.ogPath)));
+    check(`${path} X/Twitter card tags (site @kitlibrehq, title/description = OG, image = og:image, alt)`, info.tw.card === 'summary_large_image' && info.tw.site === '@kitlibrehq' && info.tw.title === info.ogTitle && info.tw.description === info.ogDesc && info.tw.image === info.og && /^https:\/\/kitlibre\.com\/og-[a-z-]+\.png$/.test(info.tw.image) && info.tw['image:alt']?.length > 10 && info.ogAlt === info.tw['image:alt'], JSON.stringify(info.tw));
     check(`${path} all form controls labelled`, info.unlabeled.length === 0, info.unlabeled.join(','));
     check(`${path} JSON-LD valid`, info.ldOk, info.ldTypes.join(','));
     await sp.close();
@@ -496,6 +499,114 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
   check('bg[it] newsletter signup works', (await nlMsg(ip)).text === 'Controlla la posta per confermare.');
   await ip.close();
 
+  // Optional SaaS Trap box after a cut-out: hidden before, shown after, below the downloads, closable + remembered
+  {
+    const stState = (p) => p.evaluate(() => { const b = document.querySelector('#st-box'); const r = b.getBoundingClientRect(); const dl = document.querySelector('#bg-result .dl').getBoundingClientRect(); const cv = document.querySelector('#bg-canvas').getBoundingClientRect(); return { hidden: b.hidden || r.height === 0, belowDl: r.top >= dl.bottom - 1, belowCanvas: r.top >= cv.bottom - 1, text: document.querySelector('#st-text').textContent, h: document.querySelector('#st-h').textContent, stored: localStorage.getItem('kitlibre:saastrap-box'), close: (() => { const c = document.querySelector('#st-close').getBoundingClientRect(); return [Math.round(c.width), Math.round(c.height)]; })(), overflowX: document.scrollingElement.scrollWidth > innerWidth } });
+    const sp = await newPage({ width: 390, height: 844, isMobile: true, hasTouch: true });
+    await mockMailerLiteScoped(sp);
+    await sp.goto(BASE + '/remove-bg/', { waitUntil: 'networkidle0' });
+    await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    check('st[en] box hidden before any cut-out', (await sp.$eval('#st-box', (b) => b.hidden)) && !(await sp.$eval('#bg-result', (r) => !r.hidden)));
+    await (await sp.$('#bg-file')).uploadFile(join(DIST, 'robots.txt'));
+    await sp.waitForFunction(() => window.__kitBg.status === 'error');
+    check('st[en] box not shown after a failed attempt', await sp.$eval('#st-box', (b) => b.hidden));
+    let s0 = await upload(sp, join(BGFIX, 'portrait-aldrin.jpg'));
+    let st = await stState(sp);
+    check('st[en] box shown after a successful cut-out, below the download buttons, not over the result', s0.status === 'done' && !st.hidden && st.belowDl && st.belowCanvas && !st.overflowX, JSON.stringify(st));
+    check('st[en] page newsletter section hidden while the box is visible (no duplicate)', (await sp.$eval('#newsletter', (n) => n.hidden)));
+    check('st[en] copy + 44px close button', st.h === 'SaaS Trap of the Week' && st.text.startsWith('remove.bg shuts down on 1 December. Every week, SaaS Trap tells you') && st.close[0] >= 44 && st.close[1] >= 44, JSON.stringify(st));
+    check('st[en] box form posts to the existing SaaS Trap MailerLite form', (await sp.$eval('#st-form', (f) => f.action)) === (await sp.$eval('#nl-form', (f) => f.action)) && (await sp.$eval('#st-form', (f) => f.action)).includes('/forms/201738245033166731/'));
+    // tool fully usable without the email: download works with the box open and untouched
+    await sp.click('#bg-dl-png');
+    await sp.waitForFunction(() => window.__kitBg.lastDownload?.name === 'portrait-aldrin-nobg.png', { timeout: 5000 }).catch(() => {});
+    check('st[en] download works without giving an email', (await sp.evaluate(() => window.__kitBg.lastDownload?.name)) === 'portrait-aldrin-nobg.png');
+    // invalid email → error, nothing posted
+    const n0 = mlPosts.length;
+    await setVal(sp, '#st-email', 'nope');
+    await sp.click('#st-form button');
+    check('st[en] invalid email → error, no request', (await sp.$eval('#st-msg', (m) => m.textContent)) === 'Please enter a valid email address.' && mlPosts.length === n0);
+    // close → hidden, remembered, focus back on the primary download button; next cut-out: not shown
+    await sp.click('#st-close');
+    st = await stState(sp);
+    check('st[en] X closes the box and remembers it (localStorage)', st.hidden && st.stored === 'dismissed' && (await sp.evaluate(() => document.activeElement?.id)) === 'bg-dl-png', JSON.stringify(st));
+    check('st[en] after X the page newsletter section is back', !(await sp.$eval('#newsletter', (n) => n.hidden)));
+    await sp.reload({ waitUntil: 'networkidle0' });
+    s0 = await upload(sp, join(BGFIX, 'dog-labrador.jpg'));
+    check('st[en] closed box stays closed after reload + new cut-out, newsletter section as today', s0.status === 'done' && (await stState(sp)).hidden && !(await sp.$eval('#newsletter', (n) => n.hidden)));
+    // another photo → box goes away, section comes back, box not offered again in this page view
+    await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    await sp.reload({ waitUntil: 'networkidle0' });
+    await upload(sp, join(BGFIX, 'portrait-aldrin.jpg'));
+    const shownFirst = !(await stState(sp)).hidden && (await sp.$eval('#newsletter', (n) => n.hidden));
+    await (await sp.$('#bg-file')).uploadFile(join(BGFIX, 'cat-grass.jpg'));
+    await sp.waitForFunction(() => window.__kitBg.status === 'working' || window.__kitBg.status === 'done');
+    const duringNext = { box: (await stState(sp)).hidden, nl: !(await sp.$eval('#newsletter', (n) => n.hidden)) };
+    await waitBg(sp);
+    check('st[en] another photo: box hidden, newsletter section back, box not offered twice', shownFirst && duringNext.box && duringNext.nl && (await stState(sp)).hidden && !(await sp.$eval('#newsletter', (n) => n.hidden)), JSON.stringify({ shownFirst, duringNext }));
+    // "Remove another" also brings the section back
+    await sp.reload({ waitUntil: 'networkidle0' });
+    await upload(sp, join(BGFIX, 'portrait-aldrin.jpg'));
+    await sp.click('#bg-again');
+    check('st[en] "Remove another" brings the newsletter section back', !(await sp.$eval('#newsletter', (n) => n.hidden)));
+    // subscribe from the box (MailerLite mocked) → success message, remembered
+    await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    await sp.reload({ waitUntil: 'networkidle0' });
+    await upload(sp, join(BGFIX, 'dog-labrador.jpg'));
+    await setVal(sp, '#st-email', 'reader@example.com');
+    await sp.click('#st-form button');
+    await sp.waitForFunction(() => document.querySelector('#st-msg').textContent !== '', { timeout: 5000 });
+    st = await stState(sp);
+    check('st[en] signup from the box (mocked): double opt-in message, same body as the other forms, remembered', (await sp.$eval('#st-msg', (m) => m.textContent)) === 'Check your inbox to confirm.' && mlPosts.at(-1)?.url.includes('/forms/201738245033166731/') && mlPosts.at(-1)?.body === 'fields%5Bemail%5D=reader%40example.com&ml-submit=1&anticsrf=true' && st.stored === 'subscribed', JSON.stringify(mlPosts.at(-1)));
+    await sp.reload({ waitUntil: 'networkidle0' });
+    await upload(sp, join(BGFIX, 'cat-grass.jpg'));
+    check('st[en] after subscribing the box is not shown again, newsletter section as today', (await stState(sp)).hidden && !(await sp.$eval('#newsletter', (n) => n.hidden)));
+    await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    await sp.close();
+    // Italian + after the deadline
+    const ip2 = await newPage({ width: 390, height: 844, isMobile: true, hasTouch: true });
+    await mockMailerLiteScoped(ip2);
+    await ip2.goto(BASE + '/it/rimuovi-sfondo/', { waitUntil: 'networkidle0' });
+    await upload(ip2, join(BGFIX, 'dog-labrador.jpg'));
+    st = await stState(ip2);
+    check('st[it] Italian copy', !st.hidden && st.h === 'SaaS Trap della settimana' && st.text === 'remove.bg chiude il 1° dicembre. Ogni settimana SaaS Trap ti dice quale tool sta per mettere un paywall, e l’alternativa gratuita.' && (await ip2.$eval('#st-close', (b) => b.getAttribute('aria-label'))) === 'Chiudi il riquadro della newsletter', JSON.stringify(st));
+    await ip2.close();
+    const late = await newPage();
+    await late.evaluateOnNewDocument(() => { const R = Date, fixed = R.parse('2026-12-05T10:00:00Z'); window.Date = class extends R { constructor(...a) { super(...(a.length ? a : [fixed])); } static now() { return fixed; } }; });
+    await late.goto(BASE + '/remove-bg/', { waitUntil: 'networkidle0' });
+    check('st[en] after 1 December the box says remove.bg has shut down', (await late.$eval('#st-text', (e) => e.textContent)).startsWith('remove.bg has shut down.'));
+    await late.close();
+  }
+  // Optional feature-alerts box (separate MailerLite form 201749732087825581), in the page content, not in the result card
+  for (const [lang, path, h2, items, btn, ok] of [
+    ['en', '/remove-bg/', 'Get notified when new features land', ['Several photos at once', 'Replace the background with an image', 'Sizes ready for social media'], 'Notify me', 'Check your inbox to confirm.'],
+    ['it', '/it/rimuovi-sfondo/', 'Avvisami quando arrivano nuove funzioni', ['Più foto insieme', 'Sfondo sostitutivo con un’immagine', 'Formati pronti per i social'], 'Avvisami', 'Controlla la posta per confermare.'],
+  ]) {
+    const fp = await newPage({ width: 390, height: 844, isMobile: true, hasTouch: true });
+    await mockMailerLiteScoped(fp);
+    await fp.goto(BASE + path, { waitUntil: 'networkidle0' });
+    await fp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    const fa = await fp.evaluate(() => { const s = document.querySelector('#feat-alerts'); return { h2: s.querySelector('h2').textContent, items: [...s.querySelectorAll('li')].map((l) => l.textContent), btn: s.querySelector('button[type=submit]').textContent, action: s.querySelector('form').action, inResult: !!s.closest('#bg-result, .bgtool'), afterHow: !!s.previousElementSibling?.querySelector('ol'), dates: /\b20\d\d\b|\b(Q[1-4]|soon|presto|entro)\b/i.test(s.textContent), visible: s.getBoundingClientRect().height > 0 }; });
+    check(`fa[${lang}] box below "How it works", outside the tool/result card, 3 upcoming features, no dates`, fa.visible && !fa.inResult && fa.afterHow && fa.h2 === h2 && JSON.stringify(fa.items) === JSON.stringify(items) && fa.btn === btn && !fa.dates, JSON.stringify(fa));
+    check(`fa[${lang}] posts to the feature-alerts form, not the newsletter one`, fa.action === 'https://assets.mailerlite.com/jsonp/2342555/forms/201749732087825581/subscribe');
+    // tool works without it, and the post-cut-out SaaS Trap box does not duplicate it
+    const r = await upload(fp, join(BGFIX, 'dog-labrador.jpg'));
+    check(`fa[${lang}] cut-out works without filling it; still visible next to the SaaS Trap box`, r.status === 'done' && !(await fp.$eval('#st-box', (b) => b.hidden)) && !(await fp.$eval('#feat-alerts', (s) => s.hidden)));
+    await setVal(fp, '#fa-email', 'x');
+    const n0 = mlPosts.length;
+    await fp.click('#fa-form button');
+    check(`fa[${lang}] invalid email → error, nothing sent`, (await fp.$eval('#fa-msg', (m) => m.className)).includes('err') && mlPosts.length === n0);
+    await setVal(fp, '#fa-email', 'reader@example.com');
+    await fp.click('#fa-form button');
+    await fp.waitForFunction(() => document.querySelector('#fa-msg').classList.contains('ok') || document.querySelector('#fa-msg').classList.contains('err'), { timeout: 5000 });
+    check(`fa[${lang}] signup (mocked) → double opt-in confirmation, only the email sent, SaaS Trap box untouched`, (await fp.$eval('#fa-msg', (m) => m.textContent)) === ok && mlPosts.at(-1)?.url === 'https://assets.mailerlite.com/jsonp/2342555/forms/201749732087825581/subscribe' && mlPosts.at(-1)?.body === 'fields%5Bemail%5D=reader%40example.com&ml-submit=1&anticsrf=true' && (await fp.evaluate(() => localStorage.getItem('kitlibre:saastrap-box'))) === null && !(await fp.$eval('#st-box', (b) => b.hidden)), JSON.stringify(mlPosts.at(-1)));
+    await fp.close();
+  }
+  for (const path of ['/privacy/', '/it/privacy/']) {
+    const pp = await newPage();
+    await pp.goto(BASE + path, { waitUntil: 'networkidle0' });
+    check(`${path} mentions the separate feature-alerts list`, /notified about new features|avvisato delle nuove funzioni/.test(await pp.$eval('main', (m) => m.textContent)));
+    await pp.close();
+  }
   // iOS share sheet ("Save to Photos" primary) and Copy, with navigator.share / canShare / clipboard mocked
   const IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
   const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36';
@@ -597,7 +708,7 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
   console.log('bg timings (box, headless Chrome, WASM):\n  ' + timings.join('\n  '));
 }
 
-check('MailerLite only contacted on submit (all mocked)', mlPosts.every((p) => p.url === 'https://assets.mailerlite.com/jsonp/2342555/forms/201738245033166731/subscribe'), String(mlPosts.length));
+check('MailerLite only contacted on submit, only our two forms (all mocked)', mlPosts.every((p) => ['https://assets.mailerlite.com/jsonp/2342555/forms/201738245033166731/subscribe', 'https://assets.mailerlite.com/jsonp/2342555/forms/201749732087825581/subscribe'].includes(p.url)), String(mlPosts.length));
 check('no requests to external origins (no CDN / tracking)', external.length === 0, external.slice(0, 5).join(', '));
 check('no console errors / CSP violations', consoleErrors.length === 0, consoleErrors.slice(0, 5).join(' | '));
 

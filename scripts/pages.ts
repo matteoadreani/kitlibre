@@ -95,9 +95,15 @@ ${canonical ? `<meta property="og:url" content="${canonical}">` : ''}
 <meta property="og:image" content="${abs(`/${p.og ?? 'og-hub'}-${p.lang}.png`)}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${h(p.title)}">
 <meta property="og:locale" content="${t.locale}">
 <meta property="og:locale:alternate" content="${p.lang === 'en' ? 'it_IT' : 'en_US'}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@kitlibrehq">
+<meta name="twitter:title" content="${h(p.title)}">
+<meta name="twitter:description" content="${h(p.desc)}">
+<meta name="twitter:image" content="${abs(`/${p.og ?? 'og-hub'}-${p.lang}.png`)}">
+<meta name="twitter:image:alt" content="${h(p.title)}">
 ${p.ld.map(jsonLd).join('\n')}
 <script type="module" src="/src/main.ts"></script>
 </head>
@@ -112,17 +118,18 @@ ${footer(t, p.lang)}
 `);
 }
 
-function nlForm(t: Dict, lang: Lang) {
+function nlForm(t: Dict, lang: Lang, p = 'nl', action: string = SITE.newsletterFormAction, btn = t.nlBtn, consent = t.nlConsent) {
   // Posts to MailerLite's public embedded-form endpoint (no API key). src/newsletter.ts submits it with fetch;
-  // without JS the browser posts it directly (MailerLite then answers with JSON).
-  return `<form class="nl-form" id="nl-form" action="${h(SITE.newsletterFormAction)}" method="post" novalidate>
-<label class="sr-only" for="nl-email">${h(t.nlEmail)}</label>
-<input id="nl-email" name="fields[email]" type="email" placeholder="${h(t.nlEmail)}" autocomplete="email" required aria-describedby="nl-consent nl-msg">
-<div class="nl-hp" aria-hidden="true"><label for="nl-website">${h(t.nlHoneypot)}</label><input id="nl-website" name="nl-website" type="text" tabindex="-1" autocomplete="off"></div>
+  // without JS the browser posts it directly (MailerLite then answers with JSON). `p` prefixes the ids so a page
+  // can hold more than one box for the same list.
+  return `<form class="nl-form" id="${p}-form" action="${h(action)}" method="post" novalidate>
+<label class="sr-only" for="${p}-email">${h(t.nlEmail)}</label>
+<input id="${p}-email" name="fields[email]" type="email" placeholder="${h(t.nlEmail)}" autocomplete="email" required aria-describedby="${p}-consent ${p}-msg">
+<div class="nl-hp" aria-hidden="true"><label for="${p}-website">${h(t.nlHoneypot)}</label><input id="${p}-website" name="nl-website" type="text" tabindex="-1" autocomplete="off"></div>
 <input type="hidden" name="ml-submit" value="1"><input type="hidden" name="anticsrf" value="true">
-<button class="btn primary" type="submit">${h(t.nlBtn)}</button></form>
-<p class="hint nl-consent" id="nl-consent">${h(t.nlConsent)} <a href="${ROUTES.privacy[lang]}">${h(t.nlPrivacy)}</a></p>
-<p class="hint nl-msg" id="nl-msg" role="status" aria-live="polite"></p>`;
+<button class="btn primary" type="submit">${h(btn)}</button></form>
+<p class="hint nl-consent" id="${p}-consent">${h(consent)} <a href="${ROUTES.privacy[lang]}">${h(t.nlPrivacy)}</a></p>
+<p class="hint nl-msg" id="${p}-msg" role="status" aria-live="polite"></p>`;
 }
 
 function hubBody(t: Dict, lang: Lang) {
@@ -346,6 +353,12 @@ function bgBody(t: Dict, lang: Lang) {
 <div class="dl"><button type="button" class="btn primary" id="bg-share" title="${h(t.bgSaveHint)}" hidden>${h(t.bgSave)}</button><button type="button" class="btn ghost" id="bg-dl-file" hidden>${h(t.bgDlFile)}</button><button type="button" class="btn primary" id="bg-dl-png">${h(t.bgDlPng)}</button><button type="button" class="btn" id="bg-dl-jpg" disabled>${h(t.bgDlJpg)}</button></div>
 <div class="row bg-more"><button type="button" class="btn ghost" id="bg-copy">${h(t.bgCopy)}</button><button type="button" class="btn ghost" id="bg-again">${h(t.bgAgain)}</button></div>
 <p class="hint" id="bg-meta"></p>
+<aside class="st-box" id="st-box" hidden aria-labelledby="st-h">
+<button type="button" class="st-close" id="st-close" aria-label="${h(t.stClose)}"><span aria-hidden="true">×</span></button>
+<h3 id="st-h">${h(t.stH)}</h3>
+<p id="st-text" data-st-deadline="${REMOVE_BG_DEADLINE}" data-after="${h(t.stTextAfter)}">${h(t.stText)}</p>
+${nlForm(t, lang, 'st')}
+</aside>
 </section>
 <section class="newsletter" id="newsletter" aria-labelledby="nl-h"><h2 id="nl-h">${h(t.nlH)}</h2><p>${h(t.nlText)}</p>
 ${nlForm(t, lang)}
@@ -356,6 +369,10 @@ ${nlForm(t, lang)}
 <p>${h(t.bgRbgP)} <strong data-deadline="${REMOVE_BG_DEADLINE}" hidden></strong></p>
 <p class="cta"><a class="btn" href="${ROUTES.bgAlt[lang]}">${h(t.bgRbgLink)} →</a> <a href="${REMOVE_BG_FAQ}" rel="noopener nofollow">${h(t.altSource)}</a></p></section>
 <section class="prose"><h2>${h(t.bgHowH)}</h2><ol>${t.bgHow.map((x) => `<li>${h(x)}</li>`).join('')}</ol></section>
+<section class="feat-alerts" id="feat-alerts" aria-labelledby="fa-h"><h2 id="fa-h">${h(t.faH)}</h2>
+<p>${h(t.faLead)}</p><ul class="fa-list">${t.faItems.map((x) => `<li>${h(x)}</li>`).join('')}</ul>
+${nlForm(t, lang, 'fa', SITE.featureFormAction, t.faBtn, t.faConsent)}
+</section>
 ${faqBlock(t.faqH, t.bgFaq)}
 <section class="prose" aria-labelledby="cred-h"><h2 id="cred-h">${h(t.bgCreditsH)}</h2><p>${credits}</p></section>
 </div>`;

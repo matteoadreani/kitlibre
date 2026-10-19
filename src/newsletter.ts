@@ -12,13 +12,15 @@ const TIMEOUT_MS = 15000;
 
 type MlResponse = { success?: boolean; errors?: { fields?: Record<string, string[]> } & Record<string, unknown> };
 
-export function initNewsletter(t: Dict) {
-  const form = document.getElementById('nl-form') as HTMLFormElement | null;
-  const msg = document.getElementById('nl-msg');
+/** `prefix` selects the form's ids (`<prefix>-form`, `<prefix>-msg`, `<prefix>-website`), so a page can hold
+ *  more than one signup box for the same list. `onOk` runs after a successful signup. */
+export function initNewsletter(t: Dict, prefix = 'nl', onOk?: () => void) {
+  const form = document.getElementById(`${prefix}-form`) as HTMLFormElement | null;
+  const msg = document.getElementById(`${prefix}-msg`);
   if (!form || !msg || form.dataset.ready) return;
   form.dataset.ready = '1';
   const email = form.querySelector<HTMLInputElement>('input[type=email]')!;
-  const honeypot = form.querySelector<HTMLInputElement>('#nl-website');
+  const honeypot = form.querySelector<HTMLInputElement>(`#${prefix}-website`);
   const button = form.querySelector<HTMLButtonElement>('button[type=submit]')!;
   const label = button.textContent ?? '';
   let busy = false;
@@ -60,6 +62,7 @@ export function initNewsletter(t: Dict) {
       if (res.ok && data.success) {
         form.reset();
         show(t.nlOk, 'ok');
+        onOk?.();
       } else if (data.errors?.fields?.email) {
         email.setAttribute('aria-invalid', 'true');
         show(t.nlInvalid, 'err');

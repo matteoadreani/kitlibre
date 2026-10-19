@@ -11,7 +11,10 @@ No account, no trial that expires, no paywall in front of the basics, and your f
   ([ormbg](https://huggingface.co/schirrmacher/ormbg), Apache-2.0, int8) runs **in the browser** with
   [ONNX Runtime Web](https://onnxruntime.ai/) (WASM, multi-threaded when cross-origin isolated). Transparent PNG, or a
   white/black/custom background as PNG or JPG; on iPhone/iPad a primary **Save to Photos** button opens the share sheet
-  ("Save Image"), with the classic download kept as "Download file"; copy to clipboard; compare with the original. The 44 MB model is downloaded
+  ("Save Image"), with the classic download kept as "Download file"; copy to clipboard; compare with the original. After a successful cut-out an optional SaaS Trap signup box
+  appears below the download buttons (same MailerLite form, double opt-in); its X, or a signup, is remembered in
+  localStorage. Nothing in the tool depends on it. Below "How it works" a small optional box lets visitors ask for feature news
+  (separate MailerLite list "Kitlibre feature alerts", form 201749732087825581, double opt-in). The 44 MB model is downloaded
   once and kept in the browser cache. Companion page: **free remove.bg alternative** (`/remove-bg-alternative/` ·
   `/it/alternativa-remove-bg/`), a factual comparison (remove.bg closes as a standalone site on 1 Dec 2026, per its FAQ).
 - **Static QR generator** (`/qr/` · `/it/qr/`): URL (with optional UTM builder), text, Wi-Fi, contact (vCard 3.0),
