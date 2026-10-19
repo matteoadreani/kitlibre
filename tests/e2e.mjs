@@ -496,6 +496,66 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
   check('bg[it] newsletter signup works', (await nlMsg(ip)).text === 'Controlla la posta per confermare.');
   await ip.close();
 
+  // Optional SaaS Trap box after a cut-out: hidden before, shown after, below the downloads, closable + remembered
+  {
+    const stState = (p) => p.evaluate(() => { const b = document.querySelector('#st-box'); const r = b.getBoundingClientRect(); const dl = document.querySelector('#bg-result .dl').getBoundingClientRect(); const cv = document.querySelector('#bg-canvas').getBoundingClientRect(); return { hidden: b.hidden || r.height === 0, belowDl: r.top >= dl.bottom - 1, belowCanvas: r.top >= cv.bottom - 1, text: document.querySelector('#st-text').textContent, h: document.querySelector('#st-h').textContent, stored: localStorage.getItem('kitlibre:saastrap-box'), close: (() => { const c = document.querySelector('#st-close').getBoundingClientRect(); return [Math.round(c.width), Math.round(c.height)]; })(), overflowX: document.scrollingElement.scrollWidth > innerWidth } });
+    const sp = await newPage({ width: 390, height: 844, isMobile: true, hasTouch: true });
+    await mockMailerLiteScoped(sp);
+    await sp.goto(BASE + '/remove-bg/', { waitUntil: 'networkidle0' });
+    await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    check('st[en] box hidden before any cut-out', (await sp.$eval('#st-box', (b) => b.hidden)) && !(await sp.$eval('#bg-result', (r) => !r.hidden)));
+    await (await sp.$('#bg-file')).uploadFile(join(DIST, 'robots.txt'));
+    await sp.waitForFunction(() => window.__kitBg.status === 'error');
+    check('st[en] box not shown after a failed attempt', await sp.$eval('#st-box', (b) => b.hidden));
+    let s0 = await upload(sp, join(BGFIX, 'portrait-aldrin.jpg'));
+    let st = await stState(sp);
+    check('st[en] box shown after a successful cut-out, below the download buttons, not over the result', s0.status === 'done' && !st.hidden && st.belowDl && st.belowCanvas && !st.overflowX, JSON.stringify(st));
+    check('st[en] copy + 44px close button', st.h === 'SaaS Trap of the Week' && st.text.startsWith('remove.bg shuts down on 1 December. Every week, SaaS Trap tells you') && st.close[0] >= 44 && st.close[1] >= 44, JSON.stringify(st));
+    check('st[en] box form posts to the existing SaaS Trap MailerLite form', (await sp.$eval('#st-form', (f) => f.action)) === (await sp.$eval('#nl-form', (f) => f.action)) && (await sp.$eval('#st-form', (f) => f.action)).includes('/forms/201738245033166731/'));
+    // tool fully usable without the email: download works with the box open and untouched
+    await sp.click('#bg-dl-png');
+    await sp.waitForFunction(() => window.__kitBg.lastDownload?.name === 'portrait-aldrin-nobg.png', { timeout: 5000 }).catch(() => {});
+    check('st[en] download works without giving an email', (await sp.evaluate(() => window.__kitBg.lastDownload?.name)) === 'portrait-aldrin-nobg.png');
+    // invalid email → error, nothing posted
+    const n0 = mlPosts.length;
+    await setVal(sp, '#st-email', 'nope');
+    await sp.click('#st-form button');
+    check('st[en] invalid email → error, no request', (await sp.$eval('#st-msg', (m) => m.textContent)) === 'Please enter a valid email address.' && mlPosts.length === n0);
+    // close → hidden, remembered, focus back on the primary download button; next cut-out: not shown
+    await sp.click('#st-close');
+    st = await stState(sp);
+    check('st[en] X closes the box and remembers it (localStorage)', st.hidden && st.stored === 'dismissed' && (await sp.evaluate(() => document.activeElement?.id)) === 'bg-dl-png', JSON.stringify(st));
+    await sp.reload({ waitUntil: 'networkidle0' });
+    s0 = await upload(sp, join(BGFIX, 'dog-labrador.jpg'));
+    check('st[en] closed box stays closed after reload + new cut-out', s0.status === 'done' && (await stState(sp)).hidden);
+    // subscribe from the box (MailerLite mocked) → success message, remembered
+    await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    await sp.reload({ waitUntil: 'networkidle0' });
+    await upload(sp, join(BGFIX, 'dog-labrador.jpg'));
+    await setVal(sp, '#st-email', 'reader@example.com');
+    await sp.click('#st-form button');
+    await sp.waitForFunction(() => document.querySelector('#st-msg').textContent !== '', { timeout: 5000 });
+    st = await stState(sp);
+    check('st[en] signup from the box (mocked): double opt-in message, same body as the other forms, remembered', (await sp.$eval('#st-msg', (m) => m.textContent)) === 'Check your inbox to confirm.' && mlPosts.at(-1)?.url.includes('/forms/201738245033166731/') && mlPosts.at(-1)?.body === 'fields%5Bemail%5D=reader%40example.com&ml-submit=1&anticsrf=true' && st.stored === 'subscribed', JSON.stringify(mlPosts.at(-1)));
+    await sp.reload({ waitUntil: 'networkidle0' });
+    await upload(sp, join(BGFIX, 'cat-grass.jpg'));
+    check('st[en] after subscribing the box is not shown again', (await stState(sp)).hidden);
+    await sp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    await sp.close();
+    // Italian + after the deadline
+    const ip2 = await newPage({ width: 390, height: 844, isMobile: true, hasTouch: true });
+    await mockMailerLiteScoped(ip2);
+    await ip2.goto(BASE + '/it/rimuovi-sfondo/', { waitUntil: 'networkidle0' });
+    await upload(ip2, join(BGFIX, 'dog-labrador.jpg'));
+    st = await stState(ip2);
+    check('st[it] Italian copy', !st.hidden && st.h === 'SaaS Trap della settimana' && st.text === 'remove.bg chiude il 1° dicembre. Ogni settimana SaaS Trap ti dice quale tool sta per mettere un paywall, e l’alternativa gratuita.' && (await ip2.$eval('#st-close', (b) => b.getAttribute('aria-label'))) === 'Chiudi il riquadro della newsletter', JSON.stringify(st));
+    await ip2.close();
+    const late = await newPage();
+    await late.evaluateOnNewDocument(() => { const R = Date, fixed = R.parse('2026-12-05T10:00:00Z'); window.Date = class extends R { constructor(...a) { super(...(a.length ? a : [fixed])); } static now() { return fixed; } }; });
+    await late.goto(BASE + '/remove-bg/', { waitUntil: 'networkidle0' });
+    check('st[en] after 1 December the box says remove.bg has shut down', (await late.$eval('#st-text', (e) => e.textContent)).startsWith('remove.bg has shut down.'));
+    await late.close();
+  }
   // iOS share sheet ("Save to Photos" primary) and Copy, with navigator.share / canShare / clipboard mocked
   const IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
   const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36';

@@ -260,3 +260,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .disclaimer { max-width: 760px; margin-top: 18px; }
 /* iOS share mode: "Save to Photos" (primary) + "Download file" (secondary) */
 .btn[hidden] { display: none; }
+
+/* Optional SaaS Trap box after a cut-out (inside the result card, below the download buttons) */
+.st-box { position: relative; margin-top: 14px; padding: 14px 52px 12px 14px; border-radius: 12px; background: var(--brand-soft); }
+.st-box h3 { margin: 0 0 4px; font-size: 1rem; }
+.st-box p { margin: 0 0 10px; font-size: .92rem; }
+.st-box .nl-consent, .st-box .st-optional { font-size: .82rem; margin: 6px 0 0; }
+.st-close { position: absolute; top: 4px; right: 4px; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: inherit; font-size: 1.6rem; line-height: 1; cursor: pointer; }
+.st-close:hover { background: rgba(0, 0, 0, .06); }
+.st-close:focus-visible { outline: 3px solid var(--brand, #0f766e); outline-offset: 1px; }
+@media (max-width: 520px) { .st-box { padding-right: 14px; } .st-box h3 { padding-right: 40px; } }

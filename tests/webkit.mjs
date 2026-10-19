@@ -84,6 +84,17 @@ if (st.status === 'done') {
     check('"Copia immagine" with the real WebKit clipboard', label === 'Copiata', label);
   } else check('ClipboardItem missing in this WebKit build: copy button hidden', await page.$eval('#bg-copy', (b) => b.hidden));
 }
+// optional SaaS Trap box: shown after the cut-out, X closes it and the choice survives a reload (localStorage)
+if (st.status === 'done') {
+  const box = await page.evaluate(() => ({ hidden: document.querySelector('#st-box').hidden, text: document.querySelector('#st-text').textContent }));
+  check('SaaS Trap box shown after the cut-out (IT copy)', !box.hidden && box.text.startsWith('remove.bg chiude il 1° dicembre.'), JSON.stringify(box));
+  await page.click('#st-close');
+  check('X closes the box and stores the choice', (await page.evaluate(() => [document.querySelector('#st-box').hidden, localStorage.getItem('kitlibre:saastrap-box')].join())) === 'true,dismissed');
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.setInputFiles('#bg-file', join(FIX, 'cat-grass.jpg'));
+  await page.waitForFunction(() => ['done', 'error'].includes(window.__kitBg?.status), null, { timeout: 300000 });
+  check('closed box stays closed after reload', await page.evaluate(() => window.__kitBg.status === 'done' && document.querySelector('#st-box').hidden));
+}
 check('no page errors', errors.length === 0, JSON.stringify(errors.slice(0, 3)));
 await browser.close();
 srv.close();

@@ -23,9 +23,26 @@ export function initCountdown(t: Dict, now = new Date()) {
   }
 }
 
+// Optional SaaS Trap box shown after a successful cut-out. Never blocks anything; closing it (or subscribing,
+// here or in the newsletter section) is remembered on this device only.
+export const ST_KEY = 'kitlibre:saastrap-box';
+const stRead = () => { try { return localStorage.getItem(ST_KEY); } catch { return null; } };
+const stWrite = (v: 'dismissed' | 'subscribed') => { try { localStorage.setItem(ST_KEY, v); } catch { /* private mode: just hide */ } };
+
 export function initBg(t: Dict) {
-  initNewsletter(t);
   initCountdown(t);
+  const stBox = $<HTMLElement>('st-box');
+  const stText = $<HTMLElement>('st-text');
+  if (stText?.dataset.stDeadline && daysUntil(new Date(stText.dataset.stDeadline), new Date()) <= 0) stText.textContent = stText.dataset.after ?? stText.textContent;
+  initNewsletter(t, 'nl', () => { stWrite('subscribed'); if (stBox && !stBox.querySelector('.nl-msg.ok')) stBox.hidden = true; });
+  initNewsletter(t, 'st', () => stWrite('subscribed'));
+  const showStBox = () => { if (stBox && !stRead()) stBox.hidden = false; };
+  $<HTMLButtonElement>('st-close')?.addEventListener('click', () => {
+    stWrite('dismissed');
+    stBox.hidden = true;
+    const primary = [...document.querySelectorAll<HTMLButtonElement>('#bg-result .dl .btn.primary')].find((b) => !b.hidden);
+    primary?.focus();
+  });
   const drop = $<HTMLDivElement>('bg-drop');
   const file = $<HTMLInputElement>('bg-file');
   const status = $<HTMLParagraphElement>('bg-status');
@@ -170,6 +187,7 @@ export function initBg(t: Dict) {
       const secs = ((performance.now() - t0) / 1000).toFixed(1);
       Object.assign(hook, { ms, totalMs: Math.round(performance.now() - t0), size: { w, h }, scaled });
       setStatus('done', fmt(t.bgStDone, { s: secs }) + (scaled ? ' ' + fmt(t.bgStScaled, { w, h }) : ''));
+      showStBox();
       meta.textContent = fmt(engineInfo.threads > 1 ? t.bgMetaN : t.bgMeta1, { n: engineInfo.threads, ms: (ms / 1000).toFixed(1) });
       result.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
     } catch (err) {
