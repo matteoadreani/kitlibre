@@ -576,6 +576,37 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
     check('st[en] after 1 December the box says remove.bg has shut down', (await late.$eval('#st-text', (e) => e.textContent)).startsWith('remove.bg has shut down.'));
     await late.close();
   }
+  // Optional feature-alerts box (separate MailerLite form 201749732087825581), in the page content, not in the result card
+  for (const [lang, path, h2, items, btn, ok] of [
+    ['en', '/remove-bg/', 'Get notified when new features land', ['Several photos at once', 'Replace the background with an image', 'Sizes ready for social media'], 'Notify me', 'Check your inbox to confirm.'],
+    ['it', '/it/rimuovi-sfondo/', 'Avvisami quando arrivano nuove funzioni', ['Più foto insieme', 'Sfondo sostitutivo con un’immagine', 'Formati pronti per i social'], 'Avvisami', 'Controlla la posta per confermare.'],
+  ]) {
+    const fp = await newPage({ width: 390, height: 844, isMobile: true, hasTouch: true });
+    await mockMailerLiteScoped(fp);
+    await fp.goto(BASE + path, { waitUntil: 'networkidle0' });
+    await fp.evaluate(() => localStorage.removeItem('kitlibre:saastrap-box'));
+    const fa = await fp.evaluate(() => { const s = document.querySelector('#feat-alerts'); return { h2: s.querySelector('h2').textContent, items: [...s.querySelectorAll('li')].map((l) => l.textContent), btn: s.querySelector('button[type=submit]').textContent, action: s.querySelector('form').action, inResult: !!s.closest('#bg-result, .bgtool'), afterHow: !!s.previousElementSibling?.querySelector('ol'), dates: /\b20\d\d\b|\b(Q[1-4]|soon|presto|entro)\b/i.test(s.textContent), visible: s.getBoundingClientRect().height > 0 }; });
+    check(`fa[${lang}] box below "How it works", outside the tool/result card, 3 upcoming features, no dates`, fa.visible && !fa.inResult && fa.afterHow && fa.h2 === h2 && JSON.stringify(fa.items) === JSON.stringify(items) && fa.btn === btn && !fa.dates, JSON.stringify(fa));
+    check(`fa[${lang}] posts to the feature-alerts form, not the newsletter one`, fa.action === 'https://assets.mailerlite.com/jsonp/2342555/forms/201749732087825581/subscribe');
+    // tool works without it, and the post-cut-out SaaS Trap box does not duplicate it
+    const r = await upload(fp, join(BGFIX, 'dog-labrador.jpg'));
+    check(`fa[${lang}] cut-out works without filling it; still visible next to the SaaS Trap box`, r.status === 'done' && !(await fp.$eval('#st-box', (b) => b.hidden)) && !(await fp.$eval('#feat-alerts', (s) => s.hidden)));
+    await setVal(fp, '#fa-email', 'x');
+    const n0 = mlPosts.length;
+    await fp.click('#fa-form button');
+    check(`fa[${lang}] invalid email → error, nothing sent`, (await fp.$eval('#fa-msg', (m) => m.className)).includes('err') && mlPosts.length === n0);
+    await setVal(fp, '#fa-email', 'reader@example.com');
+    await fp.click('#fa-form button');
+    await fp.waitForFunction(() => document.querySelector('#fa-msg').classList.contains('ok') || document.querySelector('#fa-msg').classList.contains('err'), { timeout: 5000 });
+    check(`fa[${lang}] signup (mocked) → double opt-in confirmation, only the email sent, SaaS Trap box untouched`, (await fp.$eval('#fa-msg', (m) => m.textContent)) === ok && mlPosts.at(-1)?.url === 'https://assets.mailerlite.com/jsonp/2342555/forms/201749732087825581/subscribe' && mlPosts.at(-1)?.body === 'fields%5Bemail%5D=reader%40example.com&ml-submit=1&anticsrf=true' && (await fp.evaluate(() => localStorage.getItem('kitlibre:saastrap-box'))) === null && !(await fp.$eval('#st-box', (b) => b.hidden)), JSON.stringify(mlPosts.at(-1)));
+    await fp.close();
+  }
+  for (const path of ['/privacy/', '/it/privacy/']) {
+    const pp = await newPage();
+    await pp.goto(BASE + path, { waitUntil: 'networkidle0' });
+    check(`${path} mentions the separate feature-alerts list`, /notified about new features|avvisato delle nuove funzioni/.test(await pp.$eval('main', (m) => m.textContent)));
+    await pp.close();
+  }
   // iOS share sheet ("Save to Photos" primary) and Copy, with navigator.share / canShare / clipboard mocked
   const IOS_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1';
   const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36';
@@ -677,7 +708,7 @@ for (const [path, lang] of [['/privacy/', 'en'], ['/it/privacy/', 'it']]) {
   console.log('bg timings (box, headless Chrome, WASM):\n  ' + timings.join('\n  '));
 }
 
-check('MailerLite only contacted on submit (all mocked)', mlPosts.every((p) => p.url === 'https://assets.mailerlite.com/jsonp/2342555/forms/201738245033166731/subscribe'), String(mlPosts.length));
+check('MailerLite only contacted on submit, only our two forms (all mocked)', mlPosts.every((p) => ['https://assets.mailerlite.com/jsonp/2342555/forms/201738245033166731/subscribe', 'https://assets.mailerlite.com/jsonp/2342555/forms/201749732087825581/subscribe'].includes(p.url)), String(mlPosts.length));
 check('no requests to external origins (no CDN / tracking)', external.length === 0, external.slice(0, 5).join(', '));
 check('no console errors / CSP violations', consoleErrors.length === 0, consoleErrors.slice(0, 5).join(' | '));
 

@@ -118,17 +118,17 @@ ${footer(t, p.lang)}
 `);
 }
 
-function nlForm(t: Dict, lang: Lang, p = 'nl') {
+function nlForm(t: Dict, lang: Lang, p = 'nl', action: string = SITE.newsletterFormAction, btn = t.nlBtn, consent = t.nlConsent) {
   // Posts to MailerLite's public embedded-form endpoint (no API key). src/newsletter.ts submits it with fetch;
   // without JS the browser posts it directly (MailerLite then answers with JSON). `p` prefixes the ids so a page
   // can hold more than one box for the same list.
-  return `<form class="nl-form" id="${p}-form" action="${h(SITE.newsletterFormAction)}" method="post" novalidate>
+  return `<form class="nl-form" id="${p}-form" action="${h(action)}" method="post" novalidate>
 <label class="sr-only" for="${p}-email">${h(t.nlEmail)}</label>
 <input id="${p}-email" name="fields[email]" type="email" placeholder="${h(t.nlEmail)}" autocomplete="email" required aria-describedby="${p}-consent ${p}-msg">
 <div class="nl-hp" aria-hidden="true"><label for="${p}-website">${h(t.nlHoneypot)}</label><input id="${p}-website" name="nl-website" type="text" tabindex="-1" autocomplete="off"></div>
 <input type="hidden" name="ml-submit" value="1"><input type="hidden" name="anticsrf" value="true">
-<button class="btn primary" type="submit">${h(t.nlBtn)}</button></form>
-<p class="hint nl-consent" id="${p}-consent">${h(t.nlConsent)} <a href="${ROUTES.privacy[lang]}">${h(t.nlPrivacy)}</a></p>
+<button class="btn primary" type="submit">${h(btn)}</button></form>
+<p class="hint nl-consent" id="${p}-consent">${h(consent)} <a href="${ROUTES.privacy[lang]}">${h(t.nlPrivacy)}</a></p>
 <p class="hint nl-msg" id="${p}-msg" role="status" aria-live="polite"></p>`;
 }
 
@@ -369,6 +369,10 @@ ${nlForm(t, lang)}
 <p>${h(t.bgRbgP)} <strong data-deadline="${REMOVE_BG_DEADLINE}" hidden></strong></p>
 <p class="cta"><a class="btn" href="${ROUTES.bgAlt[lang]}">${h(t.bgRbgLink)} →</a> <a href="${REMOVE_BG_FAQ}" rel="noopener nofollow">${h(t.altSource)}</a></p></section>
 <section class="prose"><h2>${h(t.bgHowH)}</h2><ol>${t.bgHow.map((x) => `<li>${h(x)}</li>`).join('')}</ol></section>
+<section class="feat-alerts" id="feat-alerts" aria-labelledby="fa-h"><h2 id="fa-h">${h(t.faH)}</h2>
+<p>${h(t.faLead)}</p><ul class="fa-list">${t.faItems.map((x) => `<li>${h(x)}</li>`).join('')}</ul>
+${nlForm(t, lang, 'fa', SITE.featureFormAction, t.faBtn, t.faConsent)}
+</section>
 ${faqBlock(t.faqH, t.bgFaq)}
 <section class="prose" aria-labelledby="cred-h"><h2 id="cred-h">${h(t.bgCreditsH)}</h2><p>${credits}</p></section>
 </div>`;

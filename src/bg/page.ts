@@ -36,6 +36,7 @@ export function initBg(t: Dict) {
   if (stText?.dataset.stDeadline && daysUntil(new Date(stText.dataset.stDeadline), new Date()) <= 0) stText.textContent = stText.dataset.after ?? stText.textContent;
   initNewsletter(t, 'nl', () => { stWrite('subscribed'); if (stBox && !stBox.querySelector('.nl-msg.ok')) stBox.hidden = true; });
   initNewsletter(t, 'st', () => stWrite('subscribed'));
+  initNewsletter(t, 'fa'); // feature alerts (separate list)
   // While the box is visible the page's own newsletter section is hidden (no duplicate). It comes back when the box
   // is closed or another photo is loaded; the box is offered once per page view. If the box was closed before or the
   // visitor already subscribed, the box never shows and the section stays as it is.

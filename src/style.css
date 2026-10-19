@@ -270,3 +270,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .st-close:hover { background: rgba(0, 0, 0, .06); }
 .st-close:focus-visible { outline: 3px solid var(--brand, #0f766e); outline-offset: 1px; }
 @media (max-width: 520px) { .st-box { padding-right: 14px; } .st-box h3 { padding-right: 40px; } }
+
+/* Optional feature-alerts box (page content, below "How it works") */
+.feat-alerts { max-width: 760px; margin: 24px 0; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; }
+.feat-alerts h2 { margin: 0 0 4px; font-size: 1.02rem; }
+.feat-alerts p { margin: 0 0 6px; font-size: .92rem; }
+.feat-alerts .fa-list { margin: 0 0 10px; padding-left: 1.2em; font-size: .92rem; }
+.feat-alerts .nl-consent { font-size: .82rem; }
