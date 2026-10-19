@@ -95,9 +95,15 @@ ${canonical ? `<meta property="og:url" content="${canonical}">` : ''}
 <meta property="og:image" content="${abs(`/${p.og ?? 'og-hub'}-${p.lang}.png`)}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${h(p.title)}">
 <meta property="og:locale" content="${t.locale}">
 <meta property="og:locale:alternate" content="${p.lang === 'en' ? 'it_IT' : 'en_US'}">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:site" content="@kitlibrehq">
+<meta name="twitter:title" content="${h(p.title)}">
+<meta name="twitter:description" content="${h(p.desc)}">
+<meta name="twitter:image" content="${abs(`/${p.og ?? 'og-hub'}-${p.lang}.png`)}">
+<meta name="twitter:image:alt" content="${h(p.title)}">
 ${p.ld.map(jsonLd).join('\n')}
 <script type="module" src="/src/main.ts"></script>
 </head>
@@ -352,7 +358,6 @@ function bgBody(t: Dict, lang: Lang) {
 <h3 id="st-h">${h(t.stH)}</h3>
 <p id="st-text" data-st-deadline="${REMOVE_BG_DEADLINE}" data-after="${h(t.stTextAfter)}">${h(t.stText)}</p>
 ${nlForm(t, lang, 'st')}
-<p class="hint st-optional">${h(t.stOptional)}</p>
 </aside>
 </section>
 <section class="newsletter" id="newsletter" aria-labelledby="nl-h"><h2 id="nl-h">${h(t.nlH)}</h2><p>${h(t.nlText)}</p>

@@ -275,6 +275,8 @@ for (const path of ['/', '/remove-bg/', '/remove-bg-alternative/', '/qr/', '/qr/
         canonical: q('link[rel=canonical]')?.href, og: q('meta[property="og:image"]')?.content, hreflang: document.querySelectorAll('link[rel=alternate][hreflang]').length,
         h1: document.querySelectorAll('h1').length, ogPath: new URL(q('meta[property="og:image"]').content).pathname, canonPath: new URL(q('link[rel=canonical]').href).pathname,
         canonHost: new URL(q('link[rel=canonical]').href).host, robots: q('meta[name=robots]')?.content, brandInTitle: document.title.includes('Kitlibre'), unlabeled, ldOk, ldTypes, imgsNoAlt: [...document.querySelectorAll('img:not([alt])')].length,
+        tw: Object.fromEntries(['card', 'site', 'title', 'description', 'image', 'image:alt'].map((k) => [k, q(`meta[name="twitter:${k}"]`)?.content ?? null])),
+        ogTitle: q('meta[property="og:title"]')?.content, ogDesc: q('meta[property="og:description"]')?.content, ogAlt: q('meta[property="og:image:alt"]')?.content,
       };
     });
     const isIt = path.startsWith('/it/');
@@ -286,6 +288,7 @@ for (const path of ['/', '/remove-bg/', '/remove-bg-alternative/', '/qr/', '/qr/
     check(`${path} robots index,follow (production build)`, info.robots === 'index,follow', info.robots);
     check(`${path} brand in title`, info.brandInTitle, info.title);
     check(`${path} OG image exists (${info.ogPath})`, existsSync(join(DIST, info.ogPath)));
+    check(`${path} X/Twitter card tags (site @kitlibrehq, title/description = OG, image = og:image, alt)`, info.tw.card === 'summary_large_image' && info.tw.site === '@kitlibrehq' && info.tw.title === info.ogTitle && info.tw.description === info.ogDesc && info.tw.image === info.og && /^https:\/\/kitlibre\.com\/og-[a-z-]+\.png$/.test(info.tw.image) && info.tw['image:alt']?.length > 10 && info.ogAlt === info.tw['image:alt'], JSON.stringify(info.tw));
     check(`${path} all form controls labelled`, info.unlabeled.length === 0, info.unlabeled.join(','));
     check(`${path} JSON-LD valid`, info.ldOk, info.ldTypes.join(','));
     await sp.close();
